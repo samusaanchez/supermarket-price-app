@@ -1,0 +1,12 @@
+# Node
+backend/node_modules/
+backend/.env
+
+# Flutter
+mobile/build/
+mobile/.dart_tool/
+
+# Sistema
+.DS_Store
+Thumbs.db
+*.log
