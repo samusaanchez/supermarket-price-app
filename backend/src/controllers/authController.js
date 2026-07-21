@@ -1,3 +1,4 @@
+const tokenService = require('../services/token');
 const pool = require('../db/pool');
 const passwordService = require('../services/password');
 
@@ -51,4 +52,65 @@ async function register(req, res) {
   }
 }
 
-module.exports = { register };
+async function login(req, res) {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      error: {
+        code: 'DATOS_INVALIDOS',
+        message: 'email y password son obligatorios',
+      },
+    });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, email, nombre, confiabilidad, password_hash
+       FROM usuarios
+       WHERE email = $1`,
+      [email.toLowerCase()]
+    );
+
+    const user = rows[0];
+
+    // Mismo error para "no existe" y "contraseña mal": no damos pistas
+    const passwordOk = user
+      ? await passwordService.verify(password, user.password_hash)
+      : false;
+
+    if (!user || !passwordOk) {
+      return res.status(401).json({
+        error: {
+          code: 'CREDENCIALES_INVALIDAS',
+          message: 'Email o contraseña incorrectos',
+        },
+      });
+    }
+
+    // Actualizamos last_login (no bloqueante, si falla no importa)
+    pool.query('UPDATE usuarios SET last_login = NOW() WHERE id = $1', [user.id])
+      .catch((err) => console.error('No se pudo actualizar last_login:', err));
+
+    const accessToken = tokenService.signAccessToken(user.id);
+    const refreshToken = tokenService.signRefreshToken(user.id);
+
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        nombre: user.nombre,
+        confiabilidad: user.confiabilidad,
+      },
+      accessToken,
+      refreshToken,
+    });
+  } catch (err) {
+    console.error('Error en login:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { register, login };
