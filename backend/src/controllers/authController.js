@@ -113,4 +113,30 @@ async function login(req, res) {
   }
 }
 
-module.exports = { register, login };
+async function getMe(req, res) {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, email, nombre, confiabilidad,
+              tickets_subidos, fotos_verificadas,
+              created_at, last_login
+       FROM usuarios
+       WHERE id = $1`,
+      [req.userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        error: { code: 'USUARIO_NO_EXISTE', message: 'Usuario no encontrado' },
+      });
+    }
+
+    return res.json({ user: rows[0] });
+  } catch (err) {
+    console.error('Error en getMe:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { register, login, getMe };
