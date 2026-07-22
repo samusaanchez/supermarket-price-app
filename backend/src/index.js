@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
+const supermercadosRoutes = require('./routes/supermercados');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -14,6 +15,7 @@ app.get('/api/v1/ping', (req, res) => {
 });
 
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/supermercados', supermercadosRoutes);
 
 app.listen(PORT, () => {
   console.log(`API escuchando en http://localhost:${PORT}`);
