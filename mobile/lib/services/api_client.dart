@@ -59,12 +59,13 @@ class ApiClient {
 
   Future<Map<String, dynamic>> get(
     String path, {
+    Map<String, dynamic>? query,
     bool auth = false,
   }) async {
-    final res = await http.get(
-      Uri.parse('$_baseUrl$path'),
-      headers: _headers(auth: auth),
+    final uri = Uri.parse('$_baseUrl$path').replace(
+      queryParameters: query?.map((k, v) => MapEntry(k, v.toString())),
     );
+    final res = await http.get(uri, headers: _headers(auth: auth));
     return _handleResponse(res);
   }
 }
