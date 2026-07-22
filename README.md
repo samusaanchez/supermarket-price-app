@@ -28,3 +28,40 @@ Proyecto de aprendizaje personal. En desarrollo.
 - **Almacenamiento seguro en móvil:** flutter_secure_storage
 
 ## Estructura
+SupermarketApp/
+├── mobile/ # App Flutter (iOS + Android + web)
+├── backend/ # API REST en Node.js
+└── docs/ # Documentación
+
+## Ejecutar en local
+
+### Requisitos
+
+- Flutter 3.44+
+- Node.js 18+
+- PostgreSQL 14+
+
+### Backend
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+# Editar .env con la contraseña real de PostgreSQL
+npm run migrate
+npm start
+```
+
+La API queda disponible en `http://localhost:3000/api/v1`.
+
+### App
+
+```bash
+cd mobile
+flutter pub get
+flutter run -d chrome
+```
+
+## Licencia
+
+Todos los derechos reservados. Código no distribuido.
