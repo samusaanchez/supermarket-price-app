@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'register_screen.dart';
 
 import '../../providers/auth_provider.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _nombreController = TextEditingController();
 
   bool _submitting = false;
 
@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _nombreController.dispose();
     super.dispose();
   }
 
@@ -30,9 +31,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _submitting = true);
 
-    final ok = await context.read<AuthProvider>().login(
+    final ok = await context.read<AuthProvider>().register(
           email: _emailController.text.trim(),
           password: _passwordController.text,
+          nombre: _nombreController.text.trim(),
         );
 
     if (!mounted) return;
@@ -45,14 +47,13 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(error)),
       );
     }
-    // Si ok: no hacemos nada aquí. main.dart detectará el cambio de estado
-    // y mostrará la pantalla home automáticamente.
+    // Si ok: el register hace login automático y _Root cambia a home.
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Iniciar sesión')),
+      appBar: AppBar(title: const Text('Crear cuenta')),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Form(
@@ -60,6 +61,15 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              TextFormField(
+                controller: _nombreController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Nombre (opcional)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -84,11 +94,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(
                   labelText: 'Contraseña',
+                  helperText: 'Mínimo 8 caracteres',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Introduce tu contraseña';
+                    return 'Introduce una contraseña';
+                  }
+                  if (value.length < 8) {
+                    return 'Al menos 8 caracteres';
                   }
                   return null;
                 },
@@ -102,21 +116,12 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Entrar'),
+                    : const Text('Crear cuenta'),
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: _submitting
-                    ? null
-                    : () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const RegisterScreen(),
-                          ),
-                        );
-                      },
-                child: const Text('¿No tienes cuenta? Regístrate'),
+                onPressed: _submitting ? null : () => Navigator.pop(context),
+                child: const Text('¿Ya tienes cuenta? Inicia sesión'),
               ),
             ],
           ),
