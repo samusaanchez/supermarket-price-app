@@ -25,4 +25,8 @@ class SupermercadosService {
     final lista = res['supermercados'] as List;
     return lista.cast<Map<String, dynamic>>();
   }
+  Future<Map<String, dynamic>> getById(int id) async {
+    final res = await _api.get('/supermercados/$id', auth: true);
+    return res['supermercado'] as Map<String, dynamic>;
+  }
 }

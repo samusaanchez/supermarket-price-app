@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../services/supermercados_service.dart';
+import 'supermercado_detail_screen.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -48,6 +49,14 @@ class _MapScreenState extends State<MapScreen> {
       });
     }
   }
+  void _abrirDetalle(int id, String nombre) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SupermercadoDetailScreen(supermercadoId: id),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,12 +99,15 @@ class _MapScreenState extends State<MapScreen> {
         point: LatLng(lat, lng),
         width: 40,
         height: 40,
-        child: Tooltip(
-          message: s['nombre'] as String,
-          child: const Icon(
-            Icons.location_on,
-            color: Colors.red,
-            size: 40,
+        child: GestureDetector(
+          onTap: () => _abrirDetalle(s['id'] as int, s['nombre'] as String),
+          child: Tooltip(
+            message: s['nombre'] as String,
+            child: const Icon(
+              Icons.location_on,
+              color: Colors.red,
+              size: 40,
+            ),
           ),
         ),
       );
