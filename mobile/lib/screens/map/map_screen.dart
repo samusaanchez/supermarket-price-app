@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-
+import '../../services/location_service.dart';
 import '../../providers/auth_provider.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../services/supermercados_service.dart';
 import 'supermercado_detail_screen.dart';
 
@@ -18,10 +19,17 @@ class _MapScreenState extends State<MapScreen> {
   List<Map<String, dynamic>> _supermercados = [];
   bool _loading = true;
   String? _error;
+  final MapController _mapController = MapController();
+  Position? _miPosicion;
 
   // Centro inicial: Nueva Almería, cerca del Mercadona que sembramos
   static const _centroInicial = LatLng(36.823817, -2.440373);
 
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
   @override
   void initState() {
     super.initState();
@@ -41,6 +49,8 @@ class _MapScreenState extends State<MapScreen> {
         _supermercados = lista;
         _loading = false;
       });
+      // No bloqueante: intenta localizar en paralelo, sin cortar la carga
+      _intentarLocalizar(silent: true);
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -49,6 +59,26 @@ class _MapScreenState extends State<MapScreen> {
       });
     }
   }
+
+  Future<void> _intentarLocalizar({bool silent = false}) async {
+    try {
+      final pos = await context.read<LocationService>().current();
+      if (!mounted) return;
+      setState(() => _miPosicion = pos);
+      _mapController.move(LatLng(pos.latitude, pos.longitude), 15);
+    } on LocationDeniedException catch (e) {
+      if (silent || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (silent || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo obtener tu ubicación')),
+      );
+    }
+  }
+  
   void _abrirDetalle(int id, String nombre) {
     Navigator.push(
       context,
@@ -72,6 +102,11 @@ class _MapScreenState extends State<MapScreen> {
         ],
       ),
       body: _buildBody(),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _intentarLocalizar(),
+        tooltip: 'Centrarme',
+        child: const Icon(Icons.my_location),
+      ),
     );
   }
 
@@ -113,7 +148,32 @@ class _MapScreenState extends State<MapScreen> {
       );
     }).toList();
 
+final marcadoresUsuario = <Marker>[];
+    if (_miPosicion != null) {
+      marcadoresUsuario.add(
+        Marker(
+          point: LatLng(_miPosicion!.latitude, _miPosicion!.longitude),
+          width: 24,
+          height: 24,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return FlutterMap(
+      mapController: _mapController,
       options: const MapOptions(
         initialCenter: _centroInicial,
         initialZoom: 15,
@@ -124,6 +184,7 @@ class _MapScreenState extends State<MapScreen> {
           userAgentPackageName: 'com.supermarketapp.mobile',
         ),
         MarkerLayer(markers: marcadores),
+        MarkerLayer(markers: marcadoresUsuario),
       ],
     );
   }
