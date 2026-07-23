@@ -16,6 +16,7 @@ class ApiClient {
   static const String _baseUrl = 'http://localhost:3000/api/v1';
 
   String? _accessToken;
+  Future<String?> Function()? refreshAccessToken;
 
   void setAccessToken(String? token) {
     _accessToken = token;
@@ -44,17 +45,37 @@ class ApiClient {
     );
   }
 
+  Future<Map<String, dynamic>> _requestWithRetry(
+    Future<http.Response> Function() request, {
+    bool auth = false,
+  }) async {
+    final res = await request();
+
+    if (res.statusCode == 401 && auth && refreshAccessToken != null) {
+      final newToken = await refreshAccessToken!();
+      if (newToken != null) {
+        setAccessToken(newToken);
+        final retryRes = await request();
+        return _handleResponse(retryRes);
+      }
+    }
+
+    return _handleResponse(res);
+  }
+
   Future<Map<String, dynamic>> post(
     String path, {
     Map<String, dynamic>? body,
     bool auth = false,
   }) async {
-    final res = await http.post(
-      Uri.parse('$_baseUrl$path'),
-      headers: _headers(auth: auth),
-      body: body == null ? null : jsonEncode(body),
+    return _requestWithRetry(
+      () => http.post(
+        Uri.parse('$_baseUrl$path'),
+        headers: _headers(auth: auth),
+        body: body == null ? null : jsonEncode(body),
+      ),
+      auth: auth,
     );
-    return _handleResponse(res);
   }
 
   Future<Map<String, dynamic>> get(
@@ -65,7 +86,9 @@ class ApiClient {
     final uri = Uri.parse('$_baseUrl$path').replace(
       queryParameters: query?.map((k, v) => MapEntry(k, v.toString())),
     );
-    final res = await http.get(uri, headers: _headers(auth: auth));
-    return _handleResponse(res);
+    return _requestWithRetry(
+      () => http.get(uri, headers: _headers(auth: auth)),
+      auth: auth,
+    );
   }
 }

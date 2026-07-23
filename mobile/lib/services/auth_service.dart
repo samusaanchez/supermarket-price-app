@@ -45,15 +45,49 @@ class AuthService {
 
   Future<Map<String, dynamic>?> tryRestoreSession() async {
     final accessToken = await _storage.read(key: _kAccessToken);
-    if (accessToken == null) return null;
+    final refreshToken = await _storage.read(key: _kRefreshToken);
 
-    _api.setAccessToken(accessToken);
+    if (accessToken == null && refreshToken == null) {
+      return null;
+    }
+
+    if (accessToken != null) {
+      _api.setAccessToken(accessToken);
+    }
+
+    if (accessToken == null && refreshToken != null) {
+      final newToken = await refreshAccessToken();
+      if (newToken == null) return null;
+    }
 
     try {
       final res = await _api.get('/auth/me', auth: true);
       return res['user'] as Map<String, dynamic>;
     } on ApiException catch (e) {
-      // Token expirado o inválido: limpiamos y devolvemos null
+      if (e.statusCode == 401) {
+        final newToken = await refreshAccessToken();
+        if (newToken == null) return null;
+        final res = await _api.get('/auth/me', auth: true);
+        return res['user'] as Map<String, dynamic>;
+      }
+      rethrow;
+    }
+  }
+
+  Future<String?> refreshAccessToken() async {
+    final refreshToken = await _storage.read(key: _kRefreshToken);
+    if (refreshToken == null) return null;
+
+    try {
+      final res = await _api.post(
+        '/auth/refresh',
+        body: {'refreshToken': refreshToken},
+      );
+      final accessToken = res['accessToken'] as String;
+      await _storage.write(key: _kAccessToken, value: accessToken);
+      _api.setAccessToken(accessToken);
+      return accessToken;
+    } on ApiException catch (e) {
       if (e.statusCode == 401) {
         await logout();
         return null;

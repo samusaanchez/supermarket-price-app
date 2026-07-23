@@ -12,6 +12,7 @@ import 'screens/map/map_screen.dart';
 void main() {
   final apiClient = ApiClient();
   final authService = AuthService(apiClient);
+  apiClient.refreshAccessToken = authService.refreshAccessToken;
   final supermercadosService = SupermercadosService(apiClient);
   final locationService = LocationService();
   final authProvider = AuthProvider(authService)..bootstrap();
