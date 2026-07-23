@@ -4,9 +4,12 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../services/location_service.dart';
 import '../../providers/auth_provider.dart';
+import 'chain_marker.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../services/supermercados_service.dart';
 import 'supermercado_detail_screen.dart';
+
+
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -138,11 +141,7 @@ class _MapScreenState extends State<MapScreen> {
           onTap: () => _abrirDetalle(s['id'] as int, s['nombre'] as String),
           child: Tooltip(
             message: s['nombre'] as String,
-            child: const Icon(
-              Icons.location_on,
-              color: Colors.red,
-              size: 40,
-            ),
+            child: ChainMarker(chain: s['cadena'] as String?),
           ),
         ),
       );
