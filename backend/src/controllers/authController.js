@@ -112,6 +112,60 @@ async function login(req, res) {
     });
   }
 }
+async function refresh(req, res) {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(400).json({
+      error: {
+        code: 'DATOS_INVALIDOS',
+        message: 'refreshToken es obligatorio',
+      },
+    });
+  }
+
+  let payload;
+  try {
+    payload = tokenService.verify(refreshToken);
+  } catch (err) {
+    return res.status(401).json({
+      error: {
+        code: 'TOKEN_INVALIDO',
+        message: 'Refresh token inválido o expirado',
+      },
+    });
+  }
+
+  if (payload.type !== 'refresh') {
+    return res.status(401).json({
+      error: {
+        code: 'TOKEN_TIPO_INVALIDO',
+        message: 'Se esperaba un refresh token',
+      },
+    });
+  }
+
+  try {
+    // Verificamos que el usuario aún existe (por si lo borraron)
+    const { rows } = await pool.query(
+      'SELECT id FROM usuarios WHERE id = $1',
+      [payload.sub]
+    );
+    if (rows.length === 0) {
+      return res.status(401).json({
+        error: { code: 'USUARIO_NO_EXISTE', message: 'Usuario no encontrado' },
+      });
+    }
+
+    const accessToken = tokenService.signAccessToken(payload.sub);
+    return res.json({ accessToken });
+  } catch (err) {
+    console.error('Error en refresh:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
 
 async function getMe(req, res) {
   try {
@@ -139,4 +193,4 @@ async function getMe(req, res) {
   }
 }
 
-module.exports = { register, login, getMe };
+module.exports = { register, login, refresh, getMe };
