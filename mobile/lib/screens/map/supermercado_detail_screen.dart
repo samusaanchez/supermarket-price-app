@@ -107,11 +107,11 @@ class _SupermercadoDetailScreenState extends State<SupermercadoDetailScreen> {
           },
           icon: const Icon(Icons.shopping_basket),
           label: const Text('Ver productos'),
-        ),
+        ),//eesto lo he cambiado no sé si está bien
 
 
 
-        
+
       ],
     );
   }
