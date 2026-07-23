@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/api_client.dart';
 import '../../services/supermercados_service.dart';
+import '../catalog/catalog_screen.dart';
 
 class SupermercadoDetailScreen extends StatefulWidget {
   final int supermercadoId;
@@ -88,15 +89,29 @@ class _SupermercadoDetailScreenState extends State<SupermercadoDetailScreen> {
         _Row(icon: Icons.place, label: 'Dirección', value: s['direccion'] as String?),
         _Row(icon: Icons.schedule, label: 'Horario', value: s['horario'] as String?),
         const SizedBox(height: 24),
+
+
+
+
         FilledButton.icon(
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Catálogo aún no disponible')),
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CatalogScreen(
+                  supermercadoId: widget.supermercadoId,
+                  supermercadoNombre: s['nombre'] as String,
+                ),
+              ),
             );
           },
           icon: const Icon(Icons.shopping_basket),
           label: const Text('Ver productos'),
         ),
+
+
+
+        
       ],
     );
   }

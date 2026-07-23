@@ -7,20 +7,22 @@ import 'screens/auth/login_screen.dart';
 import 'services/api_client.dart';
 import 'services/auth_service.dart';
 import 'screens/map/map_screen.dart';
+import 'services/productos_service.dart';
 
 
 void main() {
   final apiClient = ApiClient();
   final authService = AuthService(apiClient);
-  apiClient.refreshAccessToken = authService.refreshAccessToken;
   final supermercadosService = SupermercadosService(apiClient);
   final locationService = LocationService();
+  final productosService = ProductosService(apiClient);
   final authProvider = AuthProvider(authService)..bootstrap();
 
   runApp(SupermarketApp(
     authProvider: authProvider,
     supermercadosService: supermercadosService,
     locationService: locationService,
+    productosService: productosService,
   ));
 }
 
@@ -28,12 +30,14 @@ class SupermarketApp extends StatelessWidget {
   final AuthProvider authProvider;
   final SupermercadosService supermercadosService;
   final LocationService locationService;
+  final ProductosService productosService;
 
   const SupermarketApp({
     super.key,
     required this.authProvider,
     required this.supermercadosService,
     required this.locationService,
+    required this.productosService,
   });
 
   @override
@@ -43,6 +47,7 @@ class SupermarketApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: authProvider),
         Provider.value(value: supermercadosService),
         Provider.value(value: locationService),
+        Provider.value(value: productosService),
       ],
       child: MaterialApp(
         title: 'Supermarket',
