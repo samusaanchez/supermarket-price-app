@@ -91,4 +91,27 @@ class ApiClient {
       auth: auth,
     );
   }
+
+Future<Map<String, dynamic>> patch(
+    String path, {
+    Map<String, dynamic>? body,
+    bool auth = false,
+  }) async {
+    final res = await http.patch(
+      Uri.parse('$_baseUrl$path'),
+      headers: _headers(auth: auth),
+      body: body == null ? null : jsonEncode(body),
+    );
+    return _handleResponse(res);
+  }
+
+  Future<void> delete(String path, {bool auth = false}) async {
+    final res = await http.delete(
+      Uri.parse('$_baseUrl$path'),
+      headers: _headers(auth: auth),
+    );
+    if (res.statusCode == 204) return;
+    await _handleResponse(res);
+  }
+
 }

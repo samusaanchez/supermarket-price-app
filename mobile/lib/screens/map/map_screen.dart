@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../services/supermercados_service.dart';
 import 'supermercado_detail_screen.dart';
 import '../catalog/search_screen.dart';
+import '../list/lists_screen.dart';
 
 
 class MapScreen extends StatefulWidget {
@@ -104,6 +105,16 @@ class _MapScreenState extends State<MapScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SearchScreen()),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.list_alt),
+            tooltip: 'Mis listas',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ListsScreen()),
               );
             },
           ),
