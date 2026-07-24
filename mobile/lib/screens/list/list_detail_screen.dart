@@ -5,6 +5,8 @@ import '../../services/api_client.dart';
 import '../../services/listas_service.dart';
 import '../catalog/product_detail_screen.dart';
 
+import 'comparison_screen.dart';
+
 class ListDetailScreen extends StatefulWidget {
   final String listaId;
 
@@ -105,9 +107,14 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
       floatingActionButton: _items.isNotEmpty
           ? FloatingActionButton.extended(
               onPressed: () {
-                // TODO: comparación (etapa 3)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Comparación en la próxima etapa')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ComparisonScreen(
+                      listaId: widget.listaId,
+                      listaNombre: _lista?['nombre'] as String? ?? 'Lista',
+                    ),
+                  ),
                 );
               },
               icon: const Icon(Icons.balance),
