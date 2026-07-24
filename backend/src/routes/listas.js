@@ -14,5 +14,6 @@ router.delete('/:id', controller.remove);
 router.post('/:id/items', controller.addItem);
 router.patch('/:id/items/:itemId', controller.updateItem);
 router.delete('/:id/items/:itemId', controller.removeItem);
+router.get('/:id/comparar', controller.comparar);
 
 module.exports = router;

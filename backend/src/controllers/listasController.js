@@ -355,4 +355,144 @@ async function removeItem(req, res) {
   }
 }
 
-module.exports = { list, create, getById, rename, remove, addItem, updateItem, removeItem };
+// GET /listas/:id/comparar
+async function comparar(req, res) {
+  const listaId = req.params.id;
+
+  try {
+    // Comprobamos que la lista es del usuario
+    const listaResult = await pool.query(
+      'SELECT id, nombre FROM listas_compra WHERE id = $1 AND usuario_id = $2',
+      [listaId, req.userId]
+    );
+
+    if (listaResult.rows.length === 0) {
+      return res.status(404).json({
+        error: { code: 'NO_ENCONTRADO', message: 'Lista no encontrada' },
+      });
+    }
+
+    // Items de la lista con la info del producto
+    const itemsResult = await pool.query(
+      `SELECT
+         li.id AS item_id,
+         li.cantidad,
+         p.id AS producto_id,
+         p.nombre,
+         p.marca,
+         p.tamano,
+         p.presentacion,
+         p.variante,
+         p.cantidad_valor,
+         p.cantidad_unidad
+       FROM lista_items li
+       JOIN productos p ON p.id = li.producto_id
+       WHERE li.lista_id = $1
+       ORDER BY li.created_at`,
+      [listaId]
+    );
+
+    if (itemsResult.rows.length === 0) {
+      return res.json({
+        lista: listaResult.rows[0],
+        supermercados: [],
+        items_count: 0,
+      });
+    }
+
+    // Supermercados activos
+    const superResult = await pool.query(
+      `SELECT id, nombre, cadena
+       FROM supermercados
+       WHERE activo = TRUE
+       ORDER BY id`
+    );
+
+    // Precios de todos los productos de la lista en todos los supermercados
+    // (una sola consulta para ahorrar viajes a la BD)
+    const productoIds = itemsResult.rows.map((r) => r.producto_id);
+    const preciosResult = await pool.query(
+      `SELECT
+         producto_id,
+         supermercado_id,
+         precio,
+         fecha_actualizacion
+       FROM precios
+       WHERE producto_id = ANY($1::uuid[])`,
+      [productoIds]
+    );
+
+    // Índice para búsqueda rápida: {producto_id-supermercado_id → {precio, fecha}}
+    const preciosMap = new Map();
+    for (const p of preciosResult.rows) {
+      preciosMap.set(`${p.producto_id}-${p.supermercado_id}`, {
+        precio: p.precio,
+        fecha_actualizacion: p.fecha_actualizacion,
+      });
+    }
+
+    // Construimos la respuesta por supermercado
+    const supermercados = superResult.rows.map((s) => {
+      const items = itemsResult.rows.map((item) => {
+        const key = `${item.producto_id}-${s.id}`;
+        const precioInfo = preciosMap.get(key);
+        return {
+          item_id: item.item_id,
+          producto_id: item.producto_id,
+          nombre: item.nombre,
+          marca: item.marca,
+          tamano: item.tamano,
+          cantidad: item.cantidad,
+          precio: precioInfo ? precioInfo.precio : null,
+          fecha_actualizacion: precioInfo ? precioInfo.fecha_actualizacion : null,
+          subtotal: precioInfo
+            ? (parseFloat(precioInfo.precio) * item.cantidad).toFixed(2)
+            : null,
+        };
+      });
+
+      const disponibles = items.filter((i) => i.precio !== null);
+      const total = disponibles
+        .reduce((sum, i) => sum + parseFloat(i.subtotal), 0)
+        .toFixed(2);
+
+      return {
+        supermercado_id: s.id,
+        supermercado_nombre: s.nombre,
+        supermercado_cadena: s.cadena,
+        total,
+        productos_disponibles: disponibles.length,
+        productos_totales: items.length,
+        items,
+      };
+    });
+
+    // Ordenamos por total (los que tienen todo primero, luego por precio)
+    supermercados.sort((a, b) => {
+      // Primero: los que tienen más productos disponibles
+      if (a.productos_disponibles !== b.productos_disponibles) {
+        return b.productos_disponibles - a.productos_disponibles;
+      }
+      // Después: más barato primero
+      return parseFloat(a.total) - parseFloat(b.total);
+    });
+
+    return res.json({
+      lista: listaResult.rows[0],
+      items_count: itemsResult.rows.length,
+      supermercados,
+    });
+  } catch (err) {
+    if (err.code === '22P02') {
+      return res.status(400).json({
+        error: { code: 'ID_INVALIDO', message: 'El id no es válido' },
+      });
+    }
+    console.error('Error comparando lista:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { list, create, getById, rename, remove, addItem, updateItem, removeItem, comparar };
