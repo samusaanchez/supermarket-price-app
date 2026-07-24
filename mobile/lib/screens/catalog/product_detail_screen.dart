@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../../services/api_client.dart';
 import '../../services/productos_service.dart';
 
+import '../../services/listas_service.dart';
+import '../list/list_detail_screen.dart';
+
 class ProductDetailScreen extends StatefulWidget {
   final String productoId;
 
@@ -66,11 +69,100 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return 'hace ${diff.inDays} días';
   }
 
+  Future<void> _anadirALista() async {
+    final listasService = context.read<ListasService>();
+    List<Map<String, dynamic>> listas;
+    try {
+      listas = await listasService.list();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudieron cargar tus listas')),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    final seleccion = await showModalBottomSheet<Map<String, dynamic>?>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ListTile(
+                title: Text('Añadir a una lista', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              if (listas.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('No tienes listas. Crea una desde "Mis listas".'),
+                )
+              else
+                ...listas.map((lista) => ListTile(
+                      leading: const Icon(Icons.list_alt),
+                      title: Text(lista['nombre'] as String),
+                      onTap: () => Navigator.pop(ctx, lista),
+                    )),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: const Text('Cancelar'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (seleccion == null || !mounted) return;
+
+    try {
+      await listasService.addItem(
+        seleccion['id'] as String,
+        widget.productoId,
+        cantidad: 1,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Añadido a "${seleccion['nombre']}"'),
+          action: SnackBarAction(
+            label: 'Ver lista',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => ListDetailScreen(
+                    listaId: seleccion['id'] as String,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo añadir')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_producto?['nombre'] as String? ?? 'Producto')),
       body: _buildBody(),
+      floatingActionButton: _producto == null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _anadirALista,
+              icon: const Icon(Icons.add_shopping_cart),
+              label: const Text('Añadir a lista'),
+            ),
     );
   }
 

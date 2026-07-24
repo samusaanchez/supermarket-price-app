@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../services/listas_service.dart';
+import 'list_detail_screen.dart';
 
 class ListsScreen extends StatefulWidget {
   const ListsScreen({super.key});
@@ -176,11 +177,14 @@ class _ListsScreenState extends State<ListsScreen> {
               PopupMenuItem(value: 'borrar', child: Text('Borrar')),
             ],
           ),
-          onTap: () {
-            // TODO: navegar al detalle de la lista (etapa 2)
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Detalle en la próxima etapa')),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ListDetailScreen(listaId: lista['id'] as String),
+              ),
             );
+            _cargar(); // al volver, recargamos por si cambió num_items
           },
         );
       },
