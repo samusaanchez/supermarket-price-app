@@ -8,6 +8,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const categoriasRoutes = require('./routes/categorias');
 const productosRoutes = require('./routes/productos');
+const listasRoutes = require('./routes/listas');
 
 app.use(cors());
 app.use(express.json());
@@ -25,3 +26,4 @@ app.listen(PORT, () => {
 
 app.use('/api/v1/categorias', categoriasRoutes);
 app.use('/api/v1/productos', productosRoutes);
+app.use('/api/v1/listas', listasRoutes);
