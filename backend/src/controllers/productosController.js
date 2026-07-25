@@ -170,4 +170,80 @@ async function buscar(req, res) {
   }
 }
 
-module.exports = { list, getById, buscar };
+// POST /productos  (alta de producto nuevo, p.ej. desde una línea sin_match del ticket)
+const UNIDADES = ['L', 'ml', 'kg', 'g', 'ud'];
+
+async function crear(req, res) {
+  const nombre = (req.body.nombre || '').trim();
+  const marca = (req.body.marca || '').trim();
+  const tamano = (req.body.tamano || '').trim();
+  const presentacion = (req.body.presentacion || '').trim();
+  const variante = (req.body.variante || '').trim();
+  const categoriaId = req.body.categoria_id ?? null;
+  const cantidadValor = req.body.cantidad_valor ?? null;
+  const cantidadUnidad = req.body.cantidad_unidad ?? null;
+
+  // Campos que identifican al producto (regla 1). El nombre también es obligatorio.
+  if (!nombre || !marca || !tamano || !presentacion) {
+    return res.status(400).json({
+      error: {
+        code: 'CAMPOS_REQUERIDOS',
+        message: 'nombre, marca, tamano y presentacion son obligatorios',
+      },
+    });
+  }
+
+  // La cantidad estructurada es opcional, pero si viene una parte, vienen ambas.
+  const tieneValor = cantidadValor !== null && cantidadValor !== '';
+  const tieneUnidad = cantidadUnidad !== null && cantidadUnidad !== '';
+  if (tieneValor !== tieneUnidad) {
+    return res.status(400).json({
+      error: {
+        code: 'CANTIDAD_INCOMPLETA',
+        message: 'cantidad_valor y cantidad_unidad deben ir juntos o ninguno',
+      },
+    });
+  }
+  if (tieneUnidad && !UNIDADES.includes(cantidadUnidad)) {
+    return res.status(400).json({
+      error: {
+        code: 'UNIDAD_INVALIDA',
+        message: `cantidad_unidad debe ser una de: ${UNIDADES.join(', ')}`,
+      },
+    });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO productos
+         (nombre, marca, tamano, presentacion, variante,
+          categoria_id, cantidad_valor, cantidad_unidad)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, nombre, marca, tamano, presentacion, variante,
+                 categoria_id, cantidad_valor, cantidad_unidad`,
+      [nombre, marca, tamano, presentacion, variante,
+       categoriaId, tieneValor ? cantidadValor : null, tieneUnidad ? cantidadUnidad : null]
+    );
+    return res.status(201).json({ producto: rows[0], ya_existia: false });
+  } catch (err) {
+    // 23505 = violación de UNIQUE (marca, tamano, presentacion, variante).
+    // En vez de fallar, devolvemos el producto que ya existe para que el
+    // cliente lo reutilice (así el flujo de "crear desde ticket" no se corta).
+    if (err.code === '23505') {
+      const existing = await pool.query(
+        `SELECT id, nombre, marca, tamano, presentacion, variante,
+                categoria_id, cantidad_valor, cantidad_unidad
+         FROM productos
+         WHERE marca = $1 AND tamano = $2 AND presentacion = $3 AND variante = $4`,
+        [marca, tamano, presentacion, variante]
+      );
+      return res.status(200).json({ producto: existing.rows[0], ya_existia: true });
+    }
+    console.error('Error creando producto:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { list, getById, buscar, crear };

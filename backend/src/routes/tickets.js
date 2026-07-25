@@ -10,6 +10,7 @@ router.use(authRequired);
 // El campo del formulario con la imagen debe llamarse "foto".
 router.post('/', upload.single('foto'), controller.create);
 router.get('/', controller.list);
+router.post('/emparejar', controller.emparejar);
 router.get('/:id', controller.getById);
 router.post('/:id/confirmar', controller.confirmar);
 

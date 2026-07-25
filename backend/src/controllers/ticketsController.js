@@ -99,6 +99,67 @@ async function getById(req, res) {
   }
 }
 
+// POST /tickets/emparejar
+// Recibe líneas de texto (del OCR) y propone productos + clasificación de confianza.
+// Umbrales: >=0.8 auto, >=0.4 revisar, resto sin_match. (Regla 5 -> híbrido)
+async function emparejar(req, res) {
+  const lineas = req.body.lineas;
+  if (!Array.isArray(lineas) || lineas.length === 0) {
+    return res.status(400).json({
+      error: { code: 'LINEAS_REQUERIDAS', message: 'Envía al menos una línea' },
+    });
+  }
+
+  try {
+    const resultados = [];
+    for (const linea of lineas) {
+      const texto = (linea.texto || '').trim();
+      const precio = linea.precio ?? null;
+
+      let candidatos = [];
+      if (texto.length >= 2) {
+        const { rows } = await pool.query(
+          `SELECT p.id, p.nombre, p.marca, p.tamano, p.presentacion, p.variante,
+                  similarity(unaccent(lower(p.nombre || ' ' || p.marca)),
+                             unaccent(lower($1))) AS similitud
+           FROM productos p
+           WHERE unaccent(lower(p.nombre || ' ' || p.marca)) % unaccent(lower($1))
+           ORDER BY similitud DESC
+           LIMIT 3`,
+          [texto]
+        );
+        candidatos = rows;
+      }
+
+      const top = candidatos.length > 0 ? Number(candidatos[0].similitud) : 0;
+      let clasificacion;
+      if (top >= 0.8) {
+        clasificacion = 'auto';
+      } else if (top >= 0.4) {
+        clasificacion = 'revisar';
+      } else {
+        clasificacion = 'sin_match';
+      }
+
+      resultados.push({ texto, precio, clasificacion, similitud_top: top, candidatos });
+    }
+
+    const resumen = {
+      total: resultados.length,
+      auto: resultados.filter((r) => r.clasificacion === 'auto').length,
+      revisar: resultados.filter((r) => r.clasificacion === 'revisar').length,
+      sin_match: resultados.filter((r) => r.clasificacion === 'sin_match').length,
+    };
+
+    return res.json({ resultados, resumen });
+  } catch (err) {
+    console.error('Error emparejando líneas:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
 // POST /tickets/:id/confirmar
 // Recibe la lista de líneas ya revisadas y escribe los precios en una transacción.
 async function confirmar(req, res) {
@@ -247,4 +308,4 @@ async function confirmar(req, res) {
   }
 }
 
-module.exports = { create, list, getById, confirmar };
+module.exports = { create, list, getById, emparejar, confirmar };
