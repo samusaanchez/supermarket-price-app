@@ -10,6 +10,7 @@ import '../../services/supermercados_service.dart';
 import 'supermercado_detail_screen.dart';
 import '../catalog/search_screen.dart';
 import '../list/lists_screen.dart';
+import '../upload/upload_ticket_screen.dart';
 
 
 class MapScreen extends StatefulWidget {
@@ -98,6 +99,16 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(
         title: const Text('Supermercados'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long),
+            tooltip: 'Subir ticket',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UploadTicketScreen()),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.search),
             tooltip: 'Buscar productos',

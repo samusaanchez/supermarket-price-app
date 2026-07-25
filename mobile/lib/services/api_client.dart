@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart' show MediaType;
 
 class ApiException implements Exception {
   final int statusCode;
@@ -13,7 +14,9 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  static const String _baseUrl = 'http://localhost:3000/api/v1';
+  // Host del backend. 'origin' sirve para construir URLs de imágenes (/uploads/...).
+  static const String origin = 'http://localhost:3000';
+  static const String _baseUrl = '$origin/api/v1';
 
   String? _accessToken;
   Future<String?> Function()? refreshAccessToken;
@@ -76,6 +79,49 @@ class ApiClient {
       ),
       auth: auth,
     );
+  }
+
+  // Subida de archivos (multipart). No lleva Content-Type manual:
+  // MultipartRequest pone el suyo con el 'boundary' correcto.
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required List<int> bytes,
+    required String filename,
+    required String field,
+    String? contentType,
+    Map<String, String>? fields,
+    bool auth = false,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$path');
+
+    Future<http.Response> doRequest() async {
+      final req = http.MultipartRequest('POST', uri);
+      if (auth && _accessToken != null) {
+        req.headers['Authorization'] = 'Bearer $_accessToken';
+      }
+      fields?.forEach((k, v) => req.fields[k] = v);
+      req.files.add(
+        http.MultipartFile.fromBytes(
+          field,
+          bytes,
+          filename: filename,
+          // Etiqueta el tipo (p.ej. image/jpeg) para que el backend no lo rechace.
+          contentType: contentType != null ? MediaType.parse(contentType) : null,
+        ),
+      );
+      final streamed = await req.send();
+      return http.Response.fromStream(streamed);
+    }
+
+    final res = await doRequest();
+    if (res.statusCode == 401 && auth && refreshAccessToken != null) {
+      final newToken = await refreshAccessToken!();
+      if (newToken != null) {
+        setAccessToken(newToken);
+        return _handleResponse(await doRequest());
+      }
+    }
+    return _handleResponse(res);
   }
 
   Future<Map<String, dynamic>> get(

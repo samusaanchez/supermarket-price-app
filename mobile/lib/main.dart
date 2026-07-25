@@ -9,6 +9,7 @@ import 'services/auth_service.dart';
 import 'screens/map/map_screen.dart';
 import 'services/productos_service.dart';
 import 'services/listas_service.dart';
+import 'services/tickets_service.dart';
 
 
 void main() {
@@ -18,6 +19,7 @@ void main() {
   final locationService = LocationService();
   final productosService = ProductosService(apiClient);
   final listasService = ListasService(apiClient);
+  final ticketsService = TicketsService(apiClient);
   final authProvider = AuthProvider(authService)..bootstrap();
 
   runApp(SupermarketApp(
@@ -26,6 +28,7 @@ void main() {
     locationService: locationService,
     productosService: productosService,
     listasService: listasService,
+    ticketsService: ticketsService,
   ));
 }
 
@@ -35,6 +38,7 @@ class SupermarketApp extends StatelessWidget {
   final LocationService locationService;
   final ProductosService productosService;
   final ListasService listasService;
+  final TicketsService ticketsService;
 
   const SupermarketApp({
     super.key,
@@ -43,6 +47,7 @@ class SupermarketApp extends StatelessWidget {
     required this.locationService,
     required this.productosService,
     required this.listasService,
+    required this.ticketsService,
   });
 
   @override
@@ -54,6 +59,7 @@ class SupermarketApp extends StatelessWidget {
         Provider.value(value: locationService),
         Provider.value(value: productosService),
         Provider.value(value: listasService),
+        Provider.value(value: ticketsService),
       ],
       child: MaterialApp(
         title: 'Supermarket',
