@@ -74,6 +74,12 @@ class AuthService {
     }
   }
 
+  // Datos frescos del usuario (incluye contadores: tickets, fotos…).
+  Future<Map<String, dynamic>> me() async {
+    final res = await _api.get('/auth/me', auth: true);
+    return res['user'] as Map<String, dynamic>;
+  }
+
   Future<String?> refreshAccessToken() async {
     final refreshToken = await _storage.read(key: _kRefreshToken);
     if (refreshToken == null) return null;

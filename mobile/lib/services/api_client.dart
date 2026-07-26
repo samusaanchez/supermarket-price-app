@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' show MediaType;
 
@@ -14,9 +15,19 @@ class ApiException implements Exception {
 }
 
 class ApiClient {
-  // Host del backend. 'origin' sirve para construir URLs de imágenes (/uploads/...).
-  static const String origin = 'http://localhost:3000';
-  static const String _baseUrl = '$origin/api/v1';
+  // Host del backend según dónde corra la app:
+  //  - Web (Chrome): localhost.
+  //  - Emulador Android: 10.0.2.2 apunta al PC anfitrión.
+  //  - Resto (iOS sim, escritorio): localhost.
+  static String get origin {
+    if (kIsWeb) return 'http://localhost:3000';
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3000';
+    }
+    return 'http://localhost:3000';
+  }
+
+  static String get _baseUrl => '$origin/api/v1';
 
   String? _accessToken;
   Future<String?> Function()? refreshAccessToken;

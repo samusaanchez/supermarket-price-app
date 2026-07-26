@@ -63,6 +63,16 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Recarga los datos del usuario desde el backend (contadores actualizados).
+  Future<void> refreshUser() async {
+    try {
+      _user = await _authService.me();
+      notifyListeners();
+    } catch (_) {
+      // Si falla, dejamos los datos que ya teníamos.
+    }
+  }
+
   Future<void> logout() async {
     await _authService.logout();
     _user = null;

@@ -11,6 +11,7 @@ import 'supermercado_detail_screen.dart';
 import '../catalog/search_screen.dart';
 import '../list/lists_screen.dart';
 import '../upload/mis_tickets_screen.dart';
+import '../profile/profile_screen.dart';
 
 
 class MapScreen extends StatefulWidget {
@@ -130,9 +131,14 @@ class _MapScreenState extends State<MapScreen> {
             },
           ),
           IconButton(
-            onPressed: () => context.read<AuthProvider>().logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              );
+            },
+            icon: const Icon(Icons.person),
+            tooltip: 'Perfil',
           ),
         ],
       ),

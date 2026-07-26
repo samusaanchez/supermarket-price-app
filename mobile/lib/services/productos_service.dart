@@ -44,4 +44,30 @@ class ProductosService {
     final lista = res['productos'] as List;
     return lista.cast<Map<String, dynamic>>();
   }
+
+  // Crea un producto nuevo (o devuelve el existente si ya estaba).
+  Future<Map<String, dynamic>> crear({
+    required String nombre,
+    required String marca,
+    required String tamano,
+    required String presentacion,
+    String variante = '',
+    int? categoriaId,
+    num? cantidadValor,
+    String? cantidadUnidad,
+  }) async {
+    final body = <String, dynamic>{
+      'nombre': nombre,
+      'marca': marca,
+      'tamano': tamano,
+      'presentacion': presentacion,
+      'variante': variante,
+    };
+    if (categoriaId != null) body['categoria_id'] = categoriaId;
+    if (cantidadValor != null) body['cantidad_valor'] = cantidadValor;
+    if (cantidadUnidad != null) body['cantidad_unidad'] = cantidadUnidad;
+
+    final res = await _api.post('/productos', body: body, auth: true);
+    return res['producto'] as Map<String, dynamic>;
+  }
 }

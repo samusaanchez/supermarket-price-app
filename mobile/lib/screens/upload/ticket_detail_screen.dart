@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/tickets_service.dart';
 import '../../services/api_client.dart';
+import 'revision_screen.dart';
 
 class TicketDetailScreen extends StatefulWidget {
   final String ticketId;
@@ -19,6 +20,12 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
   void initState() {
     super.initState();
     _future = context.read<TicketsService>().getById(widget.ticketId);
+  }
+
+  void _recargar() {
+    setState(() {
+      _future = context.read<TicketsService>().getById(widget.ticketId);
+    });
   }
 
   @override
@@ -59,6 +66,23 @@ class _TicketDetailScreenState extends State<TicketDetailScreen> {
               ),
               const SizedBox(height: 4),
               Text('Estado: ${t['estado']}'),
+              if (t['estado'] != 'completado') ...[
+                const SizedBox(height: 12),
+                FilledButton.icon(
+                  onPressed: () async {
+                    final ok = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            RevisionScreen(ticketId: widget.ticketId),
+                      ),
+                    );
+                    if (ok == true) _recargar();
+                  },
+                  icon: const Icon(Icons.fact_check),
+                  label: const Text('Revisar y confirmar'),
+                ),
+              ],
               const Divider(height: 32),
               Text('Productos', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 8),
