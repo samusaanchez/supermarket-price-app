@@ -32,7 +32,22 @@ class ProductosService {
     return {
       'producto': res['producto'] as Map<String, dynamic>,
       'precios': (res['precios'] as List).cast<Map<String, dynamic>>(),
+      'valoracion': res['valoracion'] as Map<String, dynamic>?,
     };
+  }
+
+  // Valorar un producto (calidad y precio, 1-5). Devuelve las medias nuevas.
+  Future<Map<String, dynamic>> valorar(
+    String productoId,
+    int calidad,
+    int precio,
+  ) async {
+    final res = await _api.post(
+      '/productos/$productoId/valoraciones',
+      body: {'calidad': calidad, 'precio': precio},
+      auth: true,
+    );
+    return res['valoracion'] as Map<String, dynamic>;
   }
 
   Future<List<Map<String, dynamic>>> buscar(

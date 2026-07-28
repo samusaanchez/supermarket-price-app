@@ -183,6 +183,15 @@ class _SearchScreenState extends State<SearchScreen> {
                 ? '${p['marca']} · ${p['tamano']} · ${p['precio_actual']} €'
                 : '${p['marca']} · ${p['tamano']}',
           ),
+          trailing: p['valoracion_media'] != null
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star, size: 16, color: Colors.amber),
+                    Text(' ${p['valoracion_media']}'),
+                  ],
+                )
+              : null,
           onTap: () {
             Navigator.push(
               context,

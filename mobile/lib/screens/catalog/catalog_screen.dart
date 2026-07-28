@@ -284,6 +284,7 @@ class _ProductCard extends StatelessWidget {
     final precio = producto['precio_actual'] as String?;
     final fecha = producto['fecha_precio'] as String?;
     final fotoUrl = producto['foto_url'] as String?;
+    final valoracionMedia = producto['valoracion_media'] as String?;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -354,6 +355,17 @@ class _ProductCard extends StatelessWidget {
                 Text(
                   'Sin precio',
                   style: Theme.of(context).textTheme.bodySmall,
+                ),
+              if (valoracionMedia != null)
+                Row(
+                  children: [
+                    const Icon(Icons.star, size: 14, color: Colors.amber),
+                    const SizedBox(width: 2),
+                    Text(
+                      valoracionMedia,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ),
             ],
           ),

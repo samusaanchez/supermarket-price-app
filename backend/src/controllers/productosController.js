@@ -52,6 +52,10 @@ async function list(req, res) {
                      (f.votos_positivos - f.votos_negativos) DESC,
                      f.created_at DESC
             LIMIT 1)) AS foto_url,
+         (SELECT ROUND(AVG((v.calidad + v.precio) / 2.0)::numeric, 1)
+            FROM valoraciones v WHERE v.producto_id = p.id) AS valoracion_media,
+         (SELECT COUNT(*) FROM valoraciones v WHERE v.producto_id = p.id)
+            AS valoraciones_total,
          p.confianza_promedio, p.categoria_id,
          ${!isNaN(supermercadoId) ? `
          (SELECT pr.precio FROM precios pr
@@ -125,9 +129,23 @@ async function getById(req, res) {
       [id]
     );
 
+    // Valoración: medias de calidad y precio, total, y mi nota.
+    const valResult = await pool.query(
+      `SELECT
+         ROUND(AVG(calidad)::numeric, 1) AS calidad_media,
+         ROUND(AVG(precio)::numeric, 1)  AS precio_media,
+         COUNT(*)::int AS total,
+         MAX(CASE WHEN usuario_id = $2 THEN calidad END) AS mi_calidad,
+         MAX(CASE WHEN usuario_id = $2 THEN precio  END) AS mi_precio
+       FROM valoraciones
+       WHERE producto_id = $1`,
+      [id, req.userId]
+    );
+
     return res.json({
       producto,
       precios: preciosResult.rows,
+      valoracion: valResult.rows[0],
     });
   } catch (err) {
     // Si el id no es un UUID válido, PostgreSQL lanza un error
@@ -186,6 +204,8 @@ async function buscar(req, res) {
                      (f.votos_positivos - f.votos_negativos) DESC,
                      f.created_at DESC
             LIMIT 1) AS foto_url,
+         (SELECT ROUND(AVG((v.calidad + v.precio) / 2.0)::numeric, 1)
+            FROM valoraciones v WHERE v.producto_id = p.id) AS valoracion_media,
          ${precioSelect},
          similarity(unaccent(lower(p.nombre || ' ' || p.marca)), unaccent(lower($1))) AS similitud
        FROM productos p
@@ -281,4 +301,68 @@ async function crear(req, res) {
   }
 }
 
-module.exports = { list, getById, buscar, crear };
+// POST /productos/:id/valoraciones  (calidad + precio, 1-5; una por usuario)
+async function valorar(req, res) {
+  const productoId = req.params.id;
+  const calidad = Number(req.body.calidad);
+  const precio = Number(req.body.precio);
+
+  const ok = (n) => Number.isInteger(n) && n >= 1 && n <= 5;
+  if (!ok(calidad) || !ok(precio)) {
+    return res.status(400).json({
+      error: {
+        code: 'VALORACION_INVALIDA',
+        message: 'calidad y precio deben ser enteros del 1 al 5',
+      },
+    });
+  }
+
+  try {
+    const prod = await pool.query('SELECT id FROM productos WHERE id = $1', [
+      productoId,
+    ]);
+    if (prod.rows.length === 0) {
+      return res.status(404).json({
+        error: { code: 'PRODUCTO_NO_ENCONTRADO', message: 'Producto no existe' },
+      });
+    }
+
+    await pool.query(
+      `INSERT INTO valoraciones (producto_id, usuario_id, calidad, precio)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (producto_id, usuario_id)
+       DO UPDATE SET calidad = EXCLUDED.calidad,
+                     precio  = EXCLUDED.precio,
+                     updated_at = NOW()`,
+      [productoId, req.userId, calidad, precio]
+    );
+
+    const agg = await pool.query(
+      `SELECT ROUND(AVG(calidad)::numeric, 1) AS calidad_media,
+              ROUND(AVG(precio)::numeric, 1)  AS precio_media,
+              COUNT(*)::int AS total
+       FROM valoraciones WHERE producto_id = $1`,
+      [productoId]
+    );
+
+    return res.json({
+      valoracion: {
+        ...agg.rows[0],
+        mi_calidad: calidad,
+        mi_precio: precio,
+      },
+    });
+  } catch (err) {
+    if (err.code === '22P02') {
+      return res.status(400).json({
+        error: { code: 'ID_INVALIDO', message: 'El id no es válido' },
+      });
+    }
+    console.error('Error valorando producto:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { list, getById, buscar, crear, valorar };

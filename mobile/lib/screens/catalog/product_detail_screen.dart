@@ -23,6 +23,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Map<String, dynamic>? _producto;
   List<Map<String, dynamic>> _precios = [];
   List<Map<String, dynamic>> _fotos = [];
+  Map<String, dynamic>? _valoracion;
+  int _miCalidad = 0;
+  int _miPrecio = 0;
   final ImagePicker _picker = ImagePicker();
   bool _loading = true;
   String? _error;
@@ -125,6 +128,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       setState(() {
         _producto = data['producto'] as Map<String, dynamic>;
         _precios = data['precios'] as List<Map<String, dynamic>>;
+        _valoracion = data['valoracion'] as Map<String, dynamic>?;
+        _miCalidad = (_valoracion?['mi_calidad'] as int?) ?? 0;
+        _miPrecio = (_valoracion?['mi_precio'] as int?) ?? 0;
         _loading = false;
       });
     } on ApiException catch (e) {
@@ -312,6 +318,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         const SizedBox(height: 24),
         _buildFotos(),
         const SizedBox(height: 24),
+        _buildValoracion(),
+        const SizedBox(height: 24),
         Text(
           'Precios en supermercados cercanos',
           style: Theme.of(context).textTheme.titleMedium,
@@ -383,6 +391,99 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         Text(
           'Cantidad: $cantidadTexto',
           style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _valorar() async {
+    if (_miCalidad == 0 || _miPrecio == 0) return;
+    try {
+      final v = await context
+          .read<ProductosService>()
+          .valorar(widget.productoId, _miCalidad, _miPrecio);
+      if (!mounted) return;
+      setState(() => _valoracion = v);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Gracias por tu valoración!')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+    }
+  }
+
+  Widget _buildValoracion() {
+    final total = _valoracion?['total'] ?? 0;
+    final calidadMedia = _valoracion?['calidad_media'];
+    final precioMedia = _valoracion?['precio_media'];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Valoración', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        if (total == 0)
+          const Text('Aún no tiene valoraciones. ¡Sé el primero!')
+        else ...[
+          _mediaFila('Calidad', calidadMedia),
+          const SizedBox(height: 4),
+          _mediaFila('Precio', precioMedia),
+          const SizedBox(height: 4),
+          Text(
+            '$total ${total == 1 ? "valoración" : "valoraciones"} · el precio es la percepción de la gente, no el precio real',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        const Divider(height: 24),
+        Text('Tu valoración', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        _estrellasInteractivas(
+            'Calidad', _miCalidad, (n) => setState(() => _miCalidad = n)),
+        _estrellasInteractivas(
+            'Precio', _miPrecio, (n) => setState(() => _miPrecio = n)),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: (_miCalidad > 0 && _miPrecio > 0) ? _valorar : null,
+          child: const Text('Guardar valoración'),
+        ),
+      ],
+    );
+  }
+
+  Widget _mediaFila(String label, dynamic media) {
+    final valor = double.tryParse('${media ?? 0}') ?? 0;
+    final n = valor.round();
+    return Row(
+      children: [
+        SizedBox(width: 64, child: Text(label)),
+        ...List.generate(
+          5,
+          (i) => Icon(i < n ? Icons.star : Icons.star_border,
+              size: 18, color: Colors.amber),
+        ),
+        const SizedBox(width: 6),
+        Text(valor.toStringAsFixed(1)),
+      ],
+    );
+  }
+
+  Widget _estrellasInteractivas(
+      String label, int actual, ValueChanged<int> onTap) {
+    return Row(
+      children: [
+        SizedBox(width: 64, child: Text(label)),
+        ...List.generate(
+          5,
+          (i) => IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: Icon(i < actual ? Icons.star : Icons.star_border,
+                color: Colors.amber),
+            onPressed: () => onTap(i + 1),
+          ),
         ),
       ],
     );
