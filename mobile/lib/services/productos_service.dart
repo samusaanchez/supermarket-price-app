@@ -35,12 +35,13 @@ class ProductosService {
     };
   }
 
-  Future<List<Map<String, dynamic>>> buscar(String query) async {
-    final res = await _api.get(
-      '/productos/buscar',
-      query: {'q': query},
-      auth: true,
-    );
+  Future<List<Map<String, dynamic>>> buscar(
+    String query, {
+    int? supermercadoId,
+  }) async {
+    final q = <String, dynamic>{'q': query};
+    if (supermercadoId != null) q['supermercado_id'] = supermercadoId;
+    final res = await _api.get('/productos/buscar', query: q, auth: true);
     final lista = res['productos'] as List;
     return lista.cast<Map<String, dynamic>>();
   }
@@ -69,5 +70,49 @@ class ProductosService {
 
     final res = await _api.post('/productos', body: body, auth: true);
     return res['producto'] as Map<String, dynamic>;
+  }
+
+  // --- Fotos de producto ---
+
+  Future<List<Map<String, dynamic>>> listarFotos(String productoId) async {
+    final res = await _api.get('/fotos',
+        query: {'producto_id': productoId}, auth: true);
+    return (res['fotos'] as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<Map<String, dynamic>> subirFoto(
+    String productoId,
+    List<int> bytes,
+    String filename, {
+    String? mimeType,
+  }) async {
+    final res = await _api.postMultipart(
+      '/fotos',
+      bytes: bytes,
+      filename: filename,
+      field: 'foto',
+      contentType: _tipoImagen(mimeType, filename),
+      fields: {'producto_id': productoId},
+      auth: true,
+    );
+    return res['foto'] as Map<String, dynamic>;
+  }
+
+  Future<Map<String, dynamic>> votarFoto(String fotoId, int voto) async {
+    final res = await _api.post('/fotos/$fotoId/votos',
+        body: {'voto': voto}, auth: true);
+    return res['foto'] as Map<String, dynamic>;
+  }
+
+  Future<void> eliminarFoto(String fotoId) async {
+    await _api.delete('/fotos/$fotoId', auth: true);
+  }
+
+  String _tipoImagen(String? mimeType, String filename) {
+    if (mimeType != null && mimeType.isNotEmpty) return mimeType;
+    final f = filename.toLowerCase();
+    if (f.endsWith('.png')) return 'image/png';
+    if (f.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 }

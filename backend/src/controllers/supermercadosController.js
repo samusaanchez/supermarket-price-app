@@ -80,4 +80,43 @@ async function getById(req, res) {
   }
 }
 
-module.exports = { list, getById };
+// POST /supermercados  (alta de un supermercado; nivel 1: entra activo)
+async function crear(req, res) {
+  const nombre = (req.body.nombre || '').trim();
+  const cadena = (req.body.cadena || '').trim() || null;
+  const direccion = (req.body.direccion || '').trim() || null;
+  const horario = (req.body.horario || '').trim() || null;
+  const lat = Number(req.body.lat);
+  const lng = Number(req.body.lng);
+
+  if (!nombre) {
+    return res.status(400).json({
+      error: { code: 'NOMBRE_REQUERIDO', message: 'El nombre es obligatorio' },
+    });
+  }
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({
+      error: {
+        code: 'UBICACION_REQUERIDA',
+        message: 'Falta la ubicación (lat/lng)',
+      },
+    });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO supermercados (nombre, cadena, lat, lng, direccion, horario, activo)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+       RETURNING id, nombre, cadena, lat, lng, direccion, horario`,
+      [nombre, cadena, lat, lng, direccion, horario]
+    );
+    return res.status(201).json({ supermercado: rows[0] });
+  } catch (err) {
+    console.error('Error creando supermercado:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { list, getById, crear };

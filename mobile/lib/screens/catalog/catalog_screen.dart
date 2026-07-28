@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../services/api_client.dart';
 import '../../services/productos_service.dart';
 import 'product_detail_screen.dart';
+import 'search_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
   final int supermercadoId;
@@ -92,6 +94,23 @@ class _CatalogScreenState extends State<CatalogScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.supermercadoNombre),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Buscar en este supermercado',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SearchScreen(
+                    supermercadoId: widget.supermercadoId,
+                    supermercadoNombre: widget.supermercadoNombre,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -264,6 +283,7 @@ class _ProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final precio = producto['precio_actual'] as String?;
     final fecha = producto['fecha_precio'] as String?;
+    final fotoUrl = producto['foto_url'] as String?;
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -284,13 +304,22 @@ class _ProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    color:
+                        Theme.of(context).colorScheme.surfaceContainerHighest,
+                    child: fotoUrl != null
+                        ? Image.network(
+                            '${ApiClient.origin}$fotoUrl',
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                                Icons.shopping_basket_outlined,
+                                size: 32),
+                          )
+                        : const Icon(Icons.shopping_basket_outlined, size: 32),
                   ),
-                  child: const Icon(Icons.shopping_basket_outlined, size: 32),
                 ),
               ),
               const SizedBox(height: 8),

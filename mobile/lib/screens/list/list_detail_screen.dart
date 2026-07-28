@@ -155,7 +155,7 @@ class _ListDetailScreenState extends State<ListDetailScreen> {
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 80), // hueco para el botón flotante
       itemCount: _items.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final item = _items[index];
         return _ItemTile(

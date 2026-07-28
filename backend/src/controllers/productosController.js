@@ -45,7 +45,14 @@ async function list(req, res) {
       `SELECT
          p.id, p.nombre, p.marca, p.tamano, p.presentacion, p.variante,
          p.cantidad_valor, p.cantidad_unidad,
-         p.foto_url, p.confianza_promedio, p.categoria_id,
+         COALESCE(p.foto_url, (
+           SELECT f.url FROM fotos f
+            WHERE f.producto_id = p.id
+            ORDER BY (f.estado = 'verificada') DESC,
+                     (f.votos_positivos - f.votos_negativos) DESC,
+                     f.created_at DESC
+            LIMIT 1)) AS foto_url,
+         p.confianza_promedio, p.categoria_id,
          ${!isNaN(supermercadoId) ? `
          (SELECT pr.precio FROM precios pr
           WHERE pr.producto_id = p.id AND pr.supermercado_id = $${params.length - 2}) AS precio_actual,
@@ -138,6 +145,8 @@ async function getById(req, res) {
 
 async function buscar(req, res) {
   const q = (req.query.q || '').trim();
+  const supermercadoId = parseInt(req.query.supermercado_id, 10);
+  const tieneSuper = !isNaN(supermercadoId);
 
   if (q.length < 2) {
     return res.status(400).json({
@@ -149,16 +158,42 @@ async function buscar(req, res) {
   }
 
   try {
+    const params = [q];
+    // Si buscamos dentro de un supermercado, traemos su precio y
+    // filtramos a productos que tengan precio en esa tienda.
+    let precioSelect = `
+      NULL::numeric AS precio_actual,
+      NULL::timestamptz AS fecha_precio`;
+    let filtroSuper = '';
+    if (tieneSuper) {
+      params.push(supermercadoId); // $2
+      precioSelect = `
+        (SELECT pr.precio FROM precios pr
+          WHERE pr.producto_id = p.id AND pr.supermercado_id = $2) AS precio_actual,
+        (SELECT pr.fecha_actualizacion FROM precios pr
+          WHERE pr.producto_id = p.id AND pr.supermercado_id = $2) AS fecha_precio`;
+      filtroSuper = `AND EXISTS (SELECT 1 FROM precios pr
+                       WHERE pr.producto_id = p.id AND pr.supermercado_id = $2)`;
+    }
+
     const { rows } = await pool.query(
       `SELECT
          p.id, p.nombre, p.marca, p.tamano, p.presentacion, p.variante,
          p.cantidad_valor, p.cantidad_unidad, p.categoria_id,
+         (SELECT f.url FROM fotos f
+            WHERE f.producto_id = p.id
+            ORDER BY (f.estado = 'verificada') DESC,
+                     (f.votos_positivos - f.votos_negativos) DESC,
+                     f.created_at DESC
+            LIMIT 1) AS foto_url,
+         ${precioSelect},
          similarity(unaccent(lower(p.nombre || ' ' || p.marca)), unaccent(lower($1))) AS similitud
        FROM productos p
        WHERE unaccent(lower(p.nombre || ' ' || p.marca)) % unaccent(lower($1))
+       ${filtroSuper}
        ORDER BY similitud DESC
        LIMIT 30`,
-      [q]
+      params
     );
 
     return res.json({ productos: rows, query: q });

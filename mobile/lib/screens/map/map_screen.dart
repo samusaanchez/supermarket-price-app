@@ -12,6 +12,7 @@ import '../catalog/search_screen.dart';
 import '../list/lists_screen.dart';
 import '../upload/mis_tickets_screen.dart';
 import '../profile/profile_screen.dart';
+import 'add_supermarket_screen.dart';
 
 
 class MapScreen extends StatefulWidget {
@@ -100,6 +101,19 @@ class _MapScreenState extends State<MapScreen> {
       appBar: AppBar(
         title: const Text('Supermercados'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_business),
+            tooltip: 'Añadir supermercado',
+            onPressed: () async {
+              final creado = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const AddSupermarketScreen(),
+                ),
+              );
+              if (creado == true) _cargar();
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.receipt_long),
             tooltip: 'Mis tickets',

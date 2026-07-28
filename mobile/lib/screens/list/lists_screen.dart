@@ -159,7 +159,7 @@ class _ListsScreenState extends State<ListsScreen> {
 
     return ListView.separated(
       itemCount: _listas.length,
-      separatorBuilder: (_, __) => const Divider(height: 1),
+      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final lista = _listas[index];
         final numItems = lista['num_items'] as int? ?? 0;

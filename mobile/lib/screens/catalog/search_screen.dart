@@ -8,7 +8,16 @@ import '../../services/productos_service.dart';
 import 'product_detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  // Si se pasa un supermercado, la búsqueda se limita a sus productos
+  // y muestra el precio en esa tienda.
+  final int? supermercadoId;
+  final String? supermercadoNombre;
+
+  const SearchScreen({
+    super.key,
+    this.supermercadoId,
+    this.supermercadoNombre,
+  });
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -56,7 +65,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
     try {
       final service = context.read<ProductosService>();
-      final resultados = await service.buscar(query);
+      final resultados = await service.buscar(
+        query,
+        supermercadoId: widget.supermercadoId,
+      );
       if (!mounted) return;
       // Si el usuario ya escribió algo distinto mientras esperábamos,
       // descartamos esta respuesta.
@@ -90,8 +102,10 @@ class _SearchScreenState extends State<SearchScreen> {
           controller: _controller,
           autofocus: true,
           onChanged: _onQueryChanged,
-          decoration: const InputDecoration(
-            hintText: 'Buscar producto o marca...',
+          decoration: InputDecoration(
+            hintText: widget.supermercadoNombre != null
+                ? 'Buscar en ${widget.supermercadoNombre}...'
+                : 'Buscar producto o marca...',
             border: InputBorder.none,
           ),
         ),
@@ -141,12 +155,34 @@ class _SearchScreenState extends State<SearchScreen> {
       itemCount: _resultados.length,
       itemBuilder: (context, index) {
         final p = _resultados[index];
+        final fotoUrl = p['foto_url'] as String?;
         return ListTile(
-          leading: const CircleAvatar(
-            child: Icon(Icons.shopping_basket_outlined),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: fotoUrl != null
+                  ? Image.network(
+                      '${ApiClient.origin}$fotoUrl',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const ColoredBox(
+                        color: Color(0x11000000),
+                        child: Icon(Icons.shopping_basket_outlined),
+                      ),
+                    )
+                  : const ColoredBox(
+                      color: Color(0x11000000),
+                      child: Icon(Icons.shopping_basket_outlined),
+                    ),
+            ),
           ),
           title: Text(p['nombre'] as String),
-          subtitle: Text('${p['marca']} · ${p['tamano']}'),
+          subtitle: Text(
+            p['precio_actual'] != null
+                ? '${p['marca']} · ${p['tamano']} · ${p['precio_actual']} €'
+                : '${p['marca']} · ${p['tamano']}',
+          ),
           onTap: () {
             Navigator.push(
               context,

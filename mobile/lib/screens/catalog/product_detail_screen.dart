@@ -1,8 +1,11 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../services/api_client.dart';
 import '../../services/productos_service.dart';
+import '../../providers/auth_provider.dart';
 
 import '../../services/listas_service.dart';
 import '../list/list_detail_screen.dart';
@@ -19,6 +22,8 @@ class ProductDetailScreen extends StatefulWidget {
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Map<String, dynamic>? _producto;
   List<Map<String, dynamic>> _precios = [];
+  List<Map<String, dynamic>> _fotos = [];
+  final ImagePicker _picker = ImagePicker();
   bool _loading = true;
   String? _error;
 
@@ -26,6 +31,86 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _cargar();
+    _cargarFotos();
+  }
+
+  Future<void> _cargarFotos() async {
+    try {
+      final fotos =
+          await context.read<ProductosService>().listarFotos(widget.productoId);
+      if (!mounted) return;
+      setState(() => _fotos = fotos);
+    } catch (_) {
+      // Si fallan las fotos, no rompemos la ficha.
+    }
+  }
+
+  Future<void> _subirFoto() async {
+    try {
+      final img =
+          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (img == null) return;
+      final Uint8List bytes = await img.readAsBytes();
+      await context.read<ProductosService>().subirFoto(
+            widget.productoId,
+            bytes,
+            img.name,
+            mimeType: img.mimeType,
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Foto subida')));
+      _cargarFotos();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+    }
+  }
+
+  Future<void> _eliminarFoto(Map<String, dynamic> foto) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar foto'),
+        content: const Text('¿Seguro que quieres borrar esta foto?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Eliminar')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await context
+          .read<ProductosService>()
+          .eliminarFoto(foto['id'] as String);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Foto eliminada')));
+      _cargarFotos();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  }
+
+  Future<void> _votarFoto(Map<String, dynamic> foto, int voto) async {
+    try {
+      await context
+          .read<ProductosService>()
+          .votarFoto(foto['id'] as String, voto);
+      _cargarFotos();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Future<void> _cargar() async {
@@ -191,14 +276,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       children: [
         Row(
           children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 72,
+                height: 72,
+                child: _fotos.isNotEmpty
+                    ? Image.network(
+                        '${ApiClient.origin}${_fotos.first['url']}',
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _placeholderIcono(),
+                      )
+                    : _placeholderIcono(),
               ),
-              child: const Icon(Icons.shopping_basket_outlined, size: 32),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -219,6 +309,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 24),
+        _buildFotos(),
         const SizedBox(height: 24),
         Text(
           'Precios en supermercados cercanos',
@@ -293,6 +385,153 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
+    );
+  }
+
+  Widget _placeholderIcono() {
+    return ColoredBox(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      child: const Icon(Icons.shopping_basket_outlined, size: 32),
+    );
+  }
+
+  Widget _buildFotos() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Fotos', style: Theme.of(context).textTheme.titleMedium),
+            const Spacer(),
+            FilledButton.icon(
+              onPressed: _subirFoto,
+              icon: const Icon(Icons.add_a_photo),
+              label: const Text('Añadir foto'),
+              style: FilledButton.styleFrom(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                textStyle: const TextStyle(
+                    fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_fotos.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('Aún no hay fotos. Sé el primero en subir una.'),
+          )
+        else
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _fotos.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (_, i) => _fotoCard(_fotos[i]),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _fotoCard(Map<String, dynamic> f) {
+    final estado = f['estado'] as String? ?? 'pendiente';
+    final pos = f['votos_positivos'] ?? 0;
+    final neg = f['votos_negativos'] ?? 0;
+    final miId = context.read<AuthProvider>().user?['id'];
+    final esMia = miId != null && f['usuario_id'] == miId;
+
+    return SizedBox(
+      width: 150,
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Stack(
+              children: [
+                SizedBox(
+                  height: 118,
+                  width: double.infinity,
+                  child: Image.network(
+                    '${ApiClient.origin}${f['url']}',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const ColoredBox(
+                      color: Color(0x11000000),
+                      child: Icon(Icons.broken_image),
+                    ),
+                  ),
+                ),
+                if (estado == 'verificada')
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text('✓ verificada',
+                          style: TextStyle(color: Colors.white, fontSize: 10)),
+                    ),
+                  ),
+                if (esMia)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _eliminarFoto(f),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.delete,
+                              size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => _votarFoto(f, 1),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.thumb_up, size: 14),
+                        const SizedBox(width: 4),
+                        Text('$pos'),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => _votarFoto(f, -1),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.thumb_down, size: 14),
+                        const SizedBox(width: 4),
+                        Text('$neg'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

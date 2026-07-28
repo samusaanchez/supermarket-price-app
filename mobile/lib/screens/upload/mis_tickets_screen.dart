@@ -93,7 +93,7 @@ class _MisTicketsScreenState extends State<MisTicketsScreen> {
             }
             return ListView.separated(
               itemCount: tickets.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 final t = tickets[i];
                 final estado = t['estado'] as String;
@@ -106,7 +106,7 @@ class _MisTicketsScreenState extends State<MisTicketsScreen> {
                       width: 48,
                       height: 48,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           const Icon(Icons.receipt_long),
                     ),
                   ),

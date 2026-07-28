@@ -1,4 +1,6 @@
 const pool = require('../db/pool');
+const fs = require('fs');
+const path = require('path');
 
 // Umbrales de validación por comunidad (Fase C).
 const VOTOS_PARA_VERIFICAR = 3;
@@ -159,4 +161,42 @@ async function votar(req, res) {
   }
 }
 
-module.exports = { crear, listar, votar };
+// DELETE /fotos/:id  (solo el dueño puede borrar su foto)
+async function eliminar(req, res) {
+  const fotoId = req.params.id;
+  try {
+    const f = await pool.query(
+      'SELECT id, usuario_id, url FROM fotos WHERE id = $1',
+      [fotoId]
+    );
+    if (f.rows.length === 0) {
+      return res.status(404).json({
+        error: { code: 'NO_ENCONTRADO', message: 'Foto no encontrada' },
+      });
+    }
+    if (f.rows[0].usuario_id !== req.userId) {
+      return res.status(403).json({
+        error: { code: 'NO_ES_TUYA', message: 'Solo puedes borrar tus fotos' },
+      });
+    }
+
+    await pool.query('DELETE FROM fotos WHERE id = $1', [fotoId]);
+
+    // Best-effort: borrar también el archivo físico.
+    try {
+      const nombre = path.basename(f.rows[0].url); // /uploads/xxx.jpg -> xxx.jpg
+      fs.unlinkSync(path.join(__dirname, '..', '..', 'uploads', nombre));
+    } catch (_) {
+      // Si el archivo ya no está, no pasa nada.
+    }
+
+    return res.status(204).send();
+  } catch (err) {
+    console.error('Error borrando foto:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+module.exports = { crear, listar, votar, eliminar };

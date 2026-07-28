@@ -29,4 +29,18 @@ class SupermercadosService {
     final res = await _api.get('/supermercados/$id', auth: true);
     return res['supermercado'] as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> crear({
+    required String nombre,
+    String? cadena,
+    String? direccion,
+    required double lat,
+    required double lng,
+  }) async {
+    final body = <String, dynamic>{'nombre': nombre, 'lat': lat, 'lng': lng};
+    if (cadena != null && cadena.isNotEmpty) body['cadena'] = cadena;
+    if (direccion != null && direccion.isNotEmpty) body['direccion'] = direccion;
+    final res = await _api.post('/supermercados', body: body, auth: true);
+    return res['supermercado'] as Map<String, dynamic>;
+  }
 }

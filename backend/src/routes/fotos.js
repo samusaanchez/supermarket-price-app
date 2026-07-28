@@ -10,5 +10,6 @@ router.use(authRequired);
 router.post('/', upload.single('foto'), controller.crear);
 router.get('/', controller.listar);
 router.post('/:id/votos', controller.votar);
+router.delete('/:id', controller.eliminar);
 
 module.exports = router;
