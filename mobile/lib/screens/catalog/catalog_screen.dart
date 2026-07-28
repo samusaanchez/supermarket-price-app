@@ -26,6 +26,8 @@ class _CatalogScreenState extends State<CatalogScreen>
   List<Map<String, dynamic>> _categorias = [];
   bool _loadingCategorias = true;
   String? _error;
+  String _orden = 'nombre';
+  int _columnas = 2;
 
   @override
   void initState() {
@@ -110,6 +112,35 @@ class _CatalogScreenState extends State<CatalogScreen>
               );
             },
           ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Ordenar',
+            onSelected: (v) => setState(() => _orden = v),
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem(
+                  value: 'nombre',
+                  checked: _orden == 'nombre',
+                  child: const Text('Alfabético')),
+              CheckedPopupMenuItem(
+                  value: 'valoracion',
+                  checked: _orden == 'valoracion',
+                  child: const Text('Mejor valorados')),
+              CheckedPopupMenuItem(
+                  value: 'precio_asc',
+                  checked: _orden == 'precio_asc',
+                  child: const Text('Más barato')),
+              CheckedPopupMenuItem(
+                  value: 'precio_desc',
+                  checked: _orden == 'precio_desc',
+                  child: const Text('Más caro')),
+            ],
+          ),
+          IconButton(
+            icon: Icon(_columnas == 2 ? Icons.grid_view : Icons.grid_on),
+            tooltip: 'Cambiar vista',
+            onPressed: () =>
+                setState(() => _columnas = _columnas == 2 ? 3 : 2),
+          ),
         ],
         bottom: TabBar(
           controller: _tabController,
@@ -126,10 +157,14 @@ class _CatalogScreenState extends State<CatalogScreen>
           _ProductGrid(
             supermercadoId: widget.supermercadoId,
             categoriaId: null,
+            orden: _orden,
+            columnas: _columnas,
           ),
           ..._categorias.map((c) => _ProductGrid(
                 supermercadoId: widget.supermercadoId,
                 categoriaId: c['id'] as int,
+                orden: _orden,
+                columnas: _columnas,
               )),
         ],
       ),
@@ -140,8 +175,15 @@ class _CatalogScreenState extends State<CatalogScreen>
 class _ProductGrid extends StatefulWidget {
   final int supermercadoId;
   final int? categoriaId;
+  final String orden;
+  final int columnas;
 
-  const _ProductGrid({required this.supermercadoId, required this.categoriaId});
+  const _ProductGrid({
+    required this.supermercadoId,
+    required this.categoriaId,
+    required this.orden,
+    required this.columnas,
+  });
 
   @override
   State<_ProductGrid> createState() => _ProductGridState();
@@ -165,6 +207,15 @@ class _ProductGridState extends State<_ProductGrid>
     _cargar();
   }
 
+  @override
+  void didUpdateWidget(_ProductGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Si cambia el orden, recargamos desde el backend.
+    if (oldWidget.orden != widget.orden) {
+      _cargar();
+    }
+  }
+
   Future<void> _cargar() async {
     setState(() {
       _loading = true;
@@ -176,6 +227,7 @@ class _ProductGridState extends State<_ProductGrid>
         supermercadoId: widget.supermercadoId,
         categoriaId: widget.categoriaId,
         page: 1,
+        orden: widget.orden,
       );
       if (!mounted) return;
       setState(() {
@@ -204,6 +256,7 @@ class _ProductGridState extends State<_ProductGrid>
         supermercadoId: widget.supermercadoId,
         categoriaId: widget.categoriaId,
         page: _page + 1,
+        orden: widget.orden,
       );
       if (!mounted) return;
       setState(() {
@@ -245,9 +298,9 @@ class _ProductGridState extends State<_ProductGrid>
 
     return GridView.builder(
       padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: widget.columnas,
+        childAspectRatio: widget.columnas == 2 ? 0.72 : 0.60,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),

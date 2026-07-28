@@ -15,8 +15,9 @@ class ProductosService {
     int? supermercadoId,
     int? categoriaId,
     int page = 1,
+    String orden = 'nombre',
   }) async {
-    final query = <String, dynamic>{'page': page};
+    final query = <String, dynamic>{'page': page, 'orden': orden};
     if (supermercadoId != null) query['supermercado_id'] = supermercadoId;
     if (categoriaId != null) query['categoria_id'] = categoriaId;
 

@@ -41,6 +41,22 @@ async function list(req, res) {
     params.push(perPage);
     params.push(offset);
 
+    // Orden (lista blanca para evitar inyección).
+    let orderBy;
+    switch (req.query.orden) {
+      case 'valoracion':
+        orderBy = 'valoracion_media DESC NULLS LAST, p.nombre';
+        break;
+      case 'precio_asc':
+        orderBy = 'precio_actual ASC NULLS LAST, p.nombre';
+        break;
+      case 'precio_desc':
+        orderBy = 'precio_actual DESC NULLS LAST, p.nombre';
+        break;
+      default:
+        orderBy = 'p.nombre, p.variante';
+    }
+
     const dataResult = await pool.query(
       `SELECT
          p.id, p.nombre, p.marca, p.tamano, p.presentacion, p.variante,
@@ -68,7 +84,7 @@ async function list(req, res) {
          `}
        FROM productos p
        ${where}
-       ORDER BY p.nombre, p.variante
+       ORDER BY ${orderBy}
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
