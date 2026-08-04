@@ -34,6 +34,15 @@ class TicketsService {
     return res['ticket'] as Map<String, dynamic>;
   }
 
+  // OCR del ticket en el backend (Tesseract). Devuelve líneas + cabecera.
+  Future<Map<String, dynamic>> ocr(String ticketId) async {
+    final res = await _api.post('/tickets/$ticketId/ocr', auth: true);
+    return {
+      'lineas': (res['lineas'] as List).cast<Map<String, dynamic>>(),
+      'cabecera': res['cabecera'] as Map<String, dynamic>?,
+    };
+  }
+
   // Empareja líneas de texto contra el catálogo (clasificación auto/revisar/sin_match).
   Future<List<Map<String, dynamic>>> emparejar(
     List<Map<String, dynamic>> lineas,

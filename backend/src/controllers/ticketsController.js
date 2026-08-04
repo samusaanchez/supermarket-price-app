@@ -1,4 +1,108 @@
 const pool = require('../db/pool');
+const path = require('path');
+const Tesseract = require('tesseract.js');
+
+// Palabras típicas de un ticket que NO son productos.
+const RUIDO_TICKET =
+  /\b(TOTAL|IVA|BASE|CUOTA|IMPONIBLE|TARJETA|BANCARIA|FACTURA|SIMPLIFICADA|TEL[EÉ]FONO|VISA|DEBIT|MASTERCARD|IMPORTE|CAMBIO|ENTREGA|EFECTIVO|CONTACTLESS|VERIFICAD|AUT|ARC|ATC)\b/i;
+
+// Extrae solo las líneas que parecen productos: con precio, sin ruido,
+// y limpiando la cantidad inicial y el precio del final.
+function parsearLineas(textoCrudo) {
+  const lineas = [];
+  for (const bruta of textoCrudo.split('\n')) {
+    const linea = bruta.trim().replace(/\s+/g, ' ');
+    if (linea.length < 3) continue;
+
+    // Precio con 2 decimales (coge el último de la línea).
+    const matches = linea.match(/(\d{1,3}[.,]\d{2})/g);
+    if (!matches) continue; // sin precio -> no es una línea de producto
+    const precio = parseFloat(matches[matches.length - 1].replace(',', '.'));
+
+    if (RUIDO_TICKET.test(linea)) continue; // TOTAL, IVA, TARJETA...
+    if (/^\d+\s*%/.test(linea)) continue; // filas de "4% ..." / "10% ..."
+
+    // Limpia: quita cantidad inicial ("1 ", "10.") y el precio del final.
+    const texto = linea
+      .replace(/^\d+\s*[.,]?\s*/, '')
+      .replace(/\s*\d{1,3}[.,]\d{2}\s*$/, '')
+      .trim();
+    if (texto.length < 2) continue;
+
+    lineas.push({ texto, precio });
+  }
+  return lineas;
+}
+
+// Cadenas conocidas (para adivinar de qué súper es el ticket).
+const CADENAS = [
+  'Mercadona', 'Lidl', 'Carrefour', 'Consum', 'Dia', 'Alcampo', 'Aldi',
+  'Eroski', 'Hipercor', 'Supercor', 'Spar', 'Coviran', 'Froiz',
+];
+
+// Extrae de la cabecera del ticket: cadena, dirección y fecha.
+function parsearCabecera(textoCrudo) {
+  const todas = textoCrudo.split('\n').map((l) => l.trim()).filter(Boolean);
+  const cabecera = todas.slice(0, 10); // la info suele estar arriba
+  const texto = cabecera.join(' ').toUpperCase();
+
+  // Fecha dd/mm/yyyy o dd-mm-yyyy -> ISO yyyy-mm-dd
+  const f = textoCrudo.match(/(\d{2})[/\-](\d{2})[/\-](\d{4})/);
+  const fecha = f ? `${f[3]}-${f[2]}-${f[1]}` : null;
+
+  // Calle
+  const calleRe = /^(C\/|CALLE|AVDA|AV\.?|AVENIDA|PLAZA|PZA|PASEO|CTRA|CARRETERA|RONDA)/i;
+  const calle = cabecera.find((l) => calleRe.test(l)) || null;
+
+  // Código postal (5 dígitos) seguido de la ciudad.
+  const cpLinea = cabecera.find((l) => /\b\d{5}\s+[A-Za-zÁÉÍÓÚÑ]{3,}/.test(l)) || null;
+
+  const direccion = [calle, cpLinea].filter(Boolean).join(', ') || null;
+
+  // Cadena: por nombre o por sus 4 primeras letras (tolera errores del OCR).
+  let cadena = null;
+  for (const c of CADENAS) {
+    const cu = c.toUpperCase();
+    if (texto.includes(cu) || texto.includes(cu.slice(0, 4))) {
+      cadena = c;
+      break;
+    }
+  }
+
+  return { cadena, direccion, fecha };
+}
+
+// POST /tickets/:id/ocr  (lee la foto del ticket con Tesseract y devuelve líneas)
+async function ocr(req, res) {
+  const ticketId = req.params.id;
+  try {
+    const t = await pool.query(
+      'SELECT id, foto_url FROM tickets WHERE id = $1 AND usuario_id = $2',
+      [ticketId, req.userId]
+    );
+    if (t.rows.length === 0) {
+      return res.status(404).json({
+        error: { code: 'NO_ENCONTRADO', message: 'Ticket no encontrado' },
+      });
+    }
+
+    const nombre = path.basename(t.rows[0].foto_url);
+    const filePath = path.join(__dirname, '..', '..', 'uploads', nombre);
+
+    // OCR en español. La primera vez descarga los datos del idioma (tarda).
+    const { data } = await Tesseract.recognize(filePath, 'spa');
+    const texto = data.text || '';
+    const lineas = parsearLineas(texto);
+    const cabecera = parsearCabecera(texto);
+
+    return res.json({ lineas, cabecera });
+  } catch (err) {
+    console.error('Error en OCR del ticket:', err);
+    return res.status(500).json({
+      error: { code: 'ERROR_OCR', message: 'No se pudo leer el ticket' },
+    });
+  }
+}
 
 // POST /tickets  (multipart, campo de archivo "foto")
 async function create(req, res) {
@@ -308,4 +412,4 @@ async function confirmar(req, res) {
   }
 }
 
-module.exports = { create, list, getById, emparejar, confirmar };
+module.exports = { create, list, getById, ocr, emparejar, confirmar };

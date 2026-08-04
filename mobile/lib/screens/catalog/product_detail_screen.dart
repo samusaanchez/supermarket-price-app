@@ -324,6 +324,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           'Precios en supermercados cercanos',
           style: Theme.of(context).textTheme.titleMedium,
         ),
+        Text(
+          'Mantén pulsado un precio para reportarlo si es incorrecto',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
         const SizedBox(height: 8),
         if (_precios.isEmpty)
           const Padding(
@@ -348,6 +352,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   ? Theme.of(context).colorScheme.primaryContainer
                   : null,
               child: ListTile(
+                onLongPress: () => _reportarPrecio(precio),
                 leading: CircleAvatar(
                   backgroundColor: esElMasBarato
                       ? Theme.of(context).colorScheme.primary
@@ -394,6 +399,68 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
       ],
     );
+  }
+
+  Future<String?> _pedirMotivo(String titulo) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(titulo),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 2,
+          decoration: const InputDecoration(
+            labelText: 'Motivo (opcional)',
+            hintText: 'Ej: el precio ha subido, la foto es de otro producto…',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: const Text('Enviar')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _reportarPrecio(Map<String, dynamic> precio) async {
+    final motivo = await _pedirMotivo('Reportar precio incorrecto');
+    if (motivo == null) return; // canceló
+    try {
+      await context
+          .read<ProductosService>()
+          .reportarPrecio(precio['precio_id'] as String, motivo);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gracias, lo revisaremos')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+    }
+  }
+
+  Future<void> _reportarFoto(Map<String, dynamic> foto) async {
+    final motivo = await _pedirMotivo('Reportar foto incorrecta');
+    if (motivo == null) return;
+    try {
+      await context
+          .read<ProductosService>()
+          .reportarFoto(foto['id'] as String, motivo);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gracias, lo revisaremos')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: ${e.message}')));
+    }
   }
 
   Future<void> _valorar() async {
@@ -593,6 +660,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         child: const Padding(
                           padding: EdgeInsets.all(4),
                           child: Icon(Icons.delete,
+                              size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (!esMia)
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => _reportarFoto(f),
+                        child: const Padding(
+                          padding: EdgeInsets.all(4),
+                          child: Icon(Icons.flag,
                               size: 16, color: Colors.white),
                         ),
                       ),

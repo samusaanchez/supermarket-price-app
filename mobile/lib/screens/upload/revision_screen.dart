@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/tickets_service.dart';
@@ -40,14 +41,59 @@ class _RevisionScreenState extends State<RevisionScreen> {
   final List<_Linea> _lineas = [];
   List<Map<String, dynamic>> _supermercados = [];
   int? _supermercadoId;
+  String? _fechaCompra;
   bool _cargando = true;
   bool _analizando = false;
   bool _confirmando = false;
+  bool _ocrCargando = false;
 
   @override
   void initState() {
     super.initState();
-    _cargarSupermercados();
+    _inicializar();
+  }
+
+  Future<void> _inicializar() async {
+    await _cargarSupermercados();
+    // En web usamos el OCR del backend (Tesseract). En móvil irá ML Kit.
+    if (kIsWeb) await _ejecutarOcr();
+  }
+
+  Future<void> _ejecutarOcr() async {
+    setState(() => _ocrCargando = true);
+    try {
+      final res = await context.read<TicketsService>().ocr(widget.ticketId);
+      final lineas = (res['lineas'] as List).cast<Map<String, dynamic>>();
+      final cabecera = res['cabecera'] as Map<String, dynamic>?;
+
+      _lineas.clear();
+      for (final l in lineas) {
+        final precio = l['precio'];
+        _lineas.add(_Linea(
+          l['texto'] as String,
+          precio != null ? precio.toString() : '',
+        ));
+      }
+
+      // Fecha del ticket.
+      _fechaCompra = cabecera?['fecha'] as String?;
+
+      // Preselecciona el supermercado por la cadena detectada.
+      final cadena = (cabecera?['cadena'] as String?)?.toLowerCase();
+      if (cadena != null) {
+        final match = _supermercados.where(
+          (s) => (s['cadena'] as String?)?.toLowerCase() == cadena,
+        );
+        if (match.isNotEmpty) _supermercadoId = match.first['id'] as int;
+      }
+
+      if (mounted) setState(() {});
+      await _analizar();
+    } on ApiException catch (e) {
+      if (mounted) _snack('No se pudo leer el ticket: ${e.message}');
+    } finally {
+      if (mounted) setState(() => _ocrCargando = false);
+    }
   }
 
   Future<void> _cargarSupermercados() async {
@@ -209,6 +255,7 @@ class _RevisionScreenState extends State<RevisionScreen> {
             widget.ticketId,
             supermercadoId: _supermercadoId!,
             items: items,
+            fechaCompra: _fechaCompra,
           );
       if (!mounted) return;
       _snack('Ticket confirmado · ${res['precios_actualizados']} precios');
@@ -257,6 +304,20 @@ class _RevisionScreenState extends State<RevisionScreen> {
       appBar: AppBar(title: const Text('Revisar ticket')),
       body: Column(
         children: [
+          if (_ocrCargando)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  SizedBox(width: 12),
+                  Text('Leyendo el ticket…'),
+                ],
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: InputDecorator(
@@ -579,12 +640,41 @@ class _CrearProductoDialogState extends State<_CrearProductoDialog> {
   final _tamano = TextEditingController();
   final _presentacion = TextEditingController();
   final _variante = TextEditingController();
+  final _codigo = TextEditingController();
+  String? _fotoOff;
+  bool _buscando = false;
   bool _guardando = false;
 
   @override
   void initState() {
     super.initState();
     _nombre = TextEditingController(text: widget.textoInicial);
+  }
+
+  // Busca el código en Open Food Facts y rellena los campos.
+  Future<void> _buscarCodigo() async {
+    final codigo = _codigo.text.trim();
+    if (codigo.isEmpty) return;
+    setState(() => _buscando = true);
+    try {
+      final p = await context.read<ProductosService>().buscarPorCodigo(codigo);
+      if (!mounted) return;
+      setState(() {
+        final n = (p['nombre'] as String?) ?? '';
+        final m = (p['marca'] as String?) ?? '';
+        final t = (p['tamano'] as String?) ?? '';
+        if (n.isNotEmpty) _nombre.text = n;
+        if (m.isNotEmpty) _marca.text = m;
+        if (t.isNotEmpty) _tamano.text = t;
+        _fotoOff = p['foto'] as String?;
+        _buscando = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _buscando = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
+    }
   }
 
   Future<void> _guardar() async {
@@ -604,6 +694,7 @@ class _CrearProductoDialogState extends State<_CrearProductoDialog> {
             tamano: _tamano.text.trim(),
             presentacion: _presentacion.text.trim(),
             variante: _variante.text.trim(),
+            codigoBarras: _codigo.text.trim(),
           );
       if (!mounted) return;
       Navigator.pop(context, prod);
@@ -623,6 +714,40 @@ class _CrearProductoDialogState extends State<_CrearProductoDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Código de barras -> Open Food Facts.
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _codigo,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: 'Código de barras'),
+                    onSubmitted: (_) => _buscarCodigo(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buscando
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : IconButton(
+                        icon: const Icon(Icons.search),
+                        tooltip: 'Buscar en Open Food Facts',
+                        onPressed: _buscarCodigo,
+                      ),
+              ],
+            ),
+            if (_fotoOff != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Image.network(
+                  _fotoOff!,
+                  height: 80,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
             TextField(
                 controller: _nombre,
                 decoration: const InputDecoration(labelText: 'Nombre')),

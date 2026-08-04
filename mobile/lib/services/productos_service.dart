@@ -62,6 +62,12 @@ class ProductosService {
     return lista.cast<Map<String, dynamic>>();
   }
 
+  // Busca un producto en Open Food Facts por su código de barras.
+  Future<Map<String, dynamic>> buscarPorCodigo(String codigo) async {
+    final res = await _api.get('/productos/barcode/$codigo', auth: true);
+    return res['producto'] as Map<String, dynamic>;
+  }
+
   // Crea un producto nuevo (o devuelve el existente si ya estaba).
   Future<Map<String, dynamic>> crear({
     required String nombre,
@@ -72,6 +78,7 @@ class ProductosService {
     int? categoriaId,
     num? cantidadValor,
     String? cantidadUnidad,
+    String? codigoBarras,
   }) async {
     final body = <String, dynamic>{
       'nombre': nombre,
@@ -83,6 +90,9 @@ class ProductosService {
     if (categoriaId != null) body['categoria_id'] = categoriaId;
     if (cantidadValor != null) body['cantidad_valor'] = cantidadValor;
     if (cantidadUnidad != null) body['cantidad_unidad'] = cantidadUnidad;
+    if (codigoBarras != null && codigoBarras.isNotEmpty) {
+      body['codigo_barras'] = codigoBarras;
+    }
 
     final res = await _api.post('/productos', body: body, auth: true);
     return res['producto'] as Map<String, dynamic>;
@@ -122,6 +132,24 @@ class ProductosService {
 
   Future<void> eliminarFoto(String fotoId) async {
     await _api.delete('/fotos/$fotoId', auth: true);
+  }
+
+  // --- Reclamaciones ---
+
+  Future<void> reportarPrecio(String precioId, String? motivo) async {
+    await _api.post('/reclamaciones', body: {
+      'tipo': 'precio',
+      'precio_id': precioId,
+      if (motivo != null && motivo.isNotEmpty) 'motivo': motivo,
+    }, auth: true);
+  }
+
+  Future<void> reportarFoto(String fotoId, String? motivo) async {
+    await _api.post('/reclamaciones', body: {
+      'tipo': 'foto',
+      'foto_id': fotoId,
+      if (motivo != null && motivo.isNotEmpty) 'motivo': motivo,
+    }, auth: true);
   }
 
   String _tipoImagen(String? mimeType, String filename) {

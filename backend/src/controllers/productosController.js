@@ -132,6 +132,7 @@ async function getById(req, res) {
 
     const preciosResult = await pool.query(
       `SELECT
+         pr.id AS precio_id,
          pr.precio,
          pr.fecha_actualizacion,
          pr.confianza_usuario,
@@ -253,6 +254,7 @@ async function crear(req, res) {
   const categoriaId = req.body.categoria_id ?? null;
   const cantidadValor = req.body.cantidad_valor ?? null;
   const cantidadUnidad = req.body.cantidad_unidad ?? null;
+  const codigoBarras = (req.body.codigo_barras || '').trim() || null;
 
   // Campos que identifican al producto (regla 1). El nombre también es obligatorio.
   if (!nombre || !marca || !tamano || !presentacion) {
@@ -288,12 +290,13 @@ async function crear(req, res) {
     const { rows } = await pool.query(
       `INSERT INTO productos
          (nombre, marca, tamano, presentacion, variante,
-          categoria_id, cantidad_valor, cantidad_unidad)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          categoria_id, cantidad_valor, cantidad_unidad, codigo_barras)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, nombre, marca, tamano, presentacion, variante,
-                 categoria_id, cantidad_valor, cantidad_unidad`,
+                 categoria_id, cantidad_valor, cantidad_unidad, codigo_barras`,
       [nombre, marca, tamano, presentacion, variante,
-       categoriaId, tieneValor ? cantidadValor : null, tieneUnidad ? cantidadUnidad : null]
+       categoriaId, tieneValor ? cantidadValor : null,
+       tieneUnidad ? cantidadUnidad : null, codigoBarras]
     );
     return res.status(201).json({ producto: rows[0], ya_existia: false });
   } catch (err) {
@@ -313,6 +316,57 @@ async function crear(req, res) {
     console.error('Error creando producto:', err);
     return res.status(500).json({
       error: { code: 'ERROR_INTERNO', message: 'Algo falló' },
+    });
+  }
+}
+
+// GET /productos/barcode/:codigo  (busca el producto en Open Food Facts)
+async function porCodigo(req, res) {
+  const codigo = (req.params.codigo || '').trim();
+  if (!/^\d{6,14}$/.test(codigo)) {
+    return res.status(400).json({
+      error: { code: 'CODIGO_INVALIDO', message: 'Código de barras inválido' },
+    });
+  }
+
+  try {
+    const url =
+      `https://world.openfoodfacts.org/api/v2/product/${codigo}.json` +
+      `?fields=code,product_name,product_name_es,brands,quantity,image_front_url,image_url`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'SupermarketPriceApp/0.1 (dev)' },
+    });
+
+    if (!resp.ok) {
+      return res.status(502).json({
+        error: { code: 'OFF_ERROR', message: 'No se pudo consultar Open Food Facts' },
+      });
+    }
+
+    const data = await resp.json();
+    if (data.status === 0 || !data.product) {
+      return res.status(404).json({
+        error: {
+          code: 'NO_ENCONTRADO',
+          message: 'Ese código no está en Open Food Facts',
+        },
+      });
+    }
+
+    const p = data.product;
+    return res.json({
+      producto: {
+        codigo_barras: codigo,
+        nombre: (p.product_name_es || p.product_name || '').trim(),
+        marca: (p.brands || '').split(',')[0].trim(),
+        tamano: (p.quantity || '').trim(),
+        foto: p.image_front_url || p.image_url || null,
+      },
+    });
+  } catch (err) {
+    console.error('Error consultando Open Food Facts:', err);
+    return res.status(502).json({
+      error: { code: 'OFF_ERROR', message: 'No se pudo consultar Open Food Facts' },
     });
   }
 }
@@ -381,4 +435,4 @@ async function valorar(req, res) {
   }
 }
 
-module.exports = { list, getById, buscar, crear, valorar };
+module.exports = { list, getById, buscar, crear, valorar, porCodigo };

@@ -12,6 +12,7 @@ router.post('/', upload.single('foto'), controller.create);
 router.get('/', controller.list);
 router.post('/emparejar', controller.emparejar);
 router.get('/:id', controller.getById);
+router.post('/:id/ocr', controller.ocr);
 router.post('/:id/confirmar', controller.confirmar);
 
 module.exports = router;

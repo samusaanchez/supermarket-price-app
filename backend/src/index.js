@@ -12,6 +12,7 @@ const productosRoutes = require('./routes/productos');
 const listasRoutes = require('./routes/listas');
 const ticketsRoutes = require('./routes/tickets');
 const fotosRoutes = require('./routes/fotos');
+const reclamacionesRoutes = require('./routes/reclamaciones');
 
 app.use(cors());
 app.use(express.json());
@@ -35,3 +36,4 @@ app.use('/api/v1/productos', productosRoutes);
 app.use('/api/v1/listas', listasRoutes);
 app.use('/api/v1/tickets', ticketsRoutes);
 app.use('/api/v1/fotos', fotosRoutes);
+app.use('/api/v1/reclamaciones', reclamacionesRoutes);
