@@ -29,6 +29,14 @@ class ApiClient {
 
   static String get _baseUrl => '$origin/api/v1';
 
+  // Construye la URL de una imagen: si es absoluta (http...) la deja,
+  // si es relativa (/uploads/...) le antepone el host del backend.
+  static String imageUrl(String? path) {
+    if (path == null || path.isEmpty) return '';
+    if (path.startsWith('http')) return path;
+    return '$origin$path';
+  }
+
   String? _accessToken;
   Future<String?> Function()? refreshAccessToken;
 

@@ -79,6 +79,7 @@ class ProductosService {
     num? cantidadValor,
     String? cantidadUnidad,
     String? codigoBarras,
+    String? fotoUrl,
   }) async {
     final body = <String, dynamic>{
       'nombre': nombre,
@@ -93,6 +94,7 @@ class ProductosService {
     if (codigoBarras != null && codigoBarras.isNotEmpty) {
       body['codigo_barras'] = codigoBarras;
     }
+    if (fotoUrl != null && fotoUrl.isNotEmpty) body['foto_url'] = fotoUrl;
 
     final res = await _api.post('/productos', body: body, auth: true);
     return res['producto'] as Map<String, dynamic>;

@@ -255,6 +255,7 @@ async function crear(req, res) {
   const cantidadValor = req.body.cantidad_valor ?? null;
   const cantidadUnidad = req.body.cantidad_unidad ?? null;
   const codigoBarras = (req.body.codigo_barras || '').trim() || null;
+  const fotoUrl = (req.body.foto_url || '').trim() || null;
 
   // Campos que identifican al producto (regla 1). El nombre también es obligatorio.
   if (!nombre || !marca || !tamano || !presentacion) {
@@ -290,13 +291,13 @@ async function crear(req, res) {
     const { rows } = await pool.query(
       `INSERT INTO productos
          (nombre, marca, tamano, presentacion, variante,
-          categoria_id, cantidad_valor, cantidad_unidad, codigo_barras)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          categoria_id, cantidad_valor, cantidad_unidad, codigo_barras, foto_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING id, nombre, marca, tamano, presentacion, variante,
-                 categoria_id, cantidad_valor, cantidad_unidad, codigo_barras`,
+                 categoria_id, cantidad_valor, cantidad_unidad, codigo_barras, foto_url`,
       [nombre, marca, tamano, presentacion, variante,
        categoriaId, tieneValor ? cantidadValor : null,
-       tieneUnidad ? cantidadUnidad : null, codigoBarras]
+       tieneUnidad ? cantidadUnidad : null, codigoBarras, fotoUrl]
     );
     return res.status(201).json({ producto: rows[0], ya_existia: false });
   } catch (err) {

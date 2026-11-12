@@ -366,7 +366,7 @@ class _ProductCard extends StatelessWidget {
                         Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: fotoUrl != null
                         ? Image.network(
-                            '${ApiClient.origin}$fotoUrl',
+                            ApiClient.imageUrl(fotoUrl),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                                 Icons.shopping_basket_outlined,

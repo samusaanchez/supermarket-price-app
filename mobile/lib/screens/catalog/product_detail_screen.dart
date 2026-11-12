@@ -276,6 +276,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
     final p = _producto!;
     final cantidadTexto = '${p['cantidad_valor']} ${p['cantidad_unidad']}';
+    // Mejor imagen para la cabecera: foto de comunidad si hay, si no la del producto.
+    final headerFoto = _fotos.isNotEmpty
+        ? _fotos.first['url'] as String?
+        : p['foto_url'] as String?;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -287,9 +291,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               child: SizedBox(
                 width: 72,
                 height: 72,
-                child: _fotos.isNotEmpty
+                child: (headerFoto != null && headerFoto.isNotEmpty)
                     ? Image.network(
-                        '${ApiClient.origin}${_fotos.first['url']}',
+                        ApiClient.imageUrl(headerFoto),
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _placeholderIcono(),
                       )
@@ -624,7 +628,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   height: 118,
                   width: double.infinity,
                   child: Image.network(
-                    '${ApiClient.origin}${f['url']}',
+                    ApiClient.imageUrl(f['url'] as String?),
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const ColoredBox(
                       color: Color(0x11000000),

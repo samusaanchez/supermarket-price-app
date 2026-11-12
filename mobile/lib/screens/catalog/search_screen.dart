@@ -164,7 +164,7 @@ class _SearchScreenState extends State<SearchScreen> {
               height: 48,
               child: fotoUrl != null
                   ? Image.network(
-                      '${ApiClient.origin}$fotoUrl',
+                      ApiClient.imageUrl(fotoUrl),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => const ColoredBox(
                         color: Color(0x11000000),

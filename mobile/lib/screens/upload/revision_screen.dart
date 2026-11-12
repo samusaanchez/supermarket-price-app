@@ -695,6 +695,7 @@ class _CrearProductoDialogState extends State<_CrearProductoDialog> {
             presentacion: _presentacion.text.trim(),
             variante: _variante.text.trim(),
             codigoBarras: _codigo.text.trim(),
+            fotoUrl: _fotoOff,
           );
       if (!mounted) return;
       Navigator.pop(context, prod);
